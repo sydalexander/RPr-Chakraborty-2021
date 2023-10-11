@@ -97,7 +97,7 @@ This reproduction study uses R, including the SpatialEpi package for the Kulldor
 packages <- c(
   "tidycensus", "tidyverse", "downloader", "sf", "classInt", "readr",
   "here", "s2", "pastecs", "tmap", "SpatialEpi", "svDialogs",
-  "geepack", "knitr", "kableExtra", "foreign", "broom", "dotwhisker", "dotenv"
+  "geepack", "knitr", "kableExtra", "foreign", "broom", "dotwhisker", "dotenv", "kableExtra"
 )
 
 # load and install required packages
@@ -354,16 +354,15 @@ rm(acs, acs_derived, covid)
 This was not mentioned in the original study or in our pre-analyis plan.
 However, we replace the missing data with zeros, producing results identical to Chakraborty's.
 
-#FIX - Missing Data Clean Table
 ```{r missing data table FIX}
+#FIX - Missing Data Clean Table
 #changed the Kable parameters in the original code block to improve the formatting of the table
 # county with missing data
-library(kableExtra)
  
 # WORKS
 filter(acs_covid, is.na(bpov_pct)) %>% st_drop_geometry() %>% 
   t() %>%
-  kable(align = "c", caption = "Missing County Data") %>%
+  kable(col.names = c("Value"), align = "c", caption = "Missing County Data") %>%
   kable_styling(full_width = FALSE)
 
 # replace NA with 0 for missing data
@@ -419,15 +418,20 @@ tm_disability_rates <- tm_shape(acs_covid) +
 tm_disability_rates
 ```
 
-## Map Age 75+
+## Map Age 65+
 
 **Unplanned deviation for reproduction** Visualizations for the original study and its reproduction are concerned with the relationship between COVID-19 incidence and with disability.
-Here, we map the spatial distribution of the percent of people 75 or older to look for spatial patterns between old age and COVID-19 incidence, looking at one of the sub-groups within the wider categorization of "disability."
+Here, we map the spatial distribution of the percent of people 65 or older to look for spatial patterns between old age and COVID-19 incidence, looking at one of the sub-groups within the wider categorization of "disability."
 
-```{r map-age-75, message = FALSE}
-tm_age_75 <- tm_shape(acs_covid) +
-  tm_polygons("pct_75",
-    title = "Percent of People Aged 75+\n(ACS 2014-2018)",
+```{r map-age-65-75, message = FALSE}
+#new column 65-75
+acs_covid_MOD <- acs_covid %>%
+  add_column(add_column = "pct_65_75")
+acs_covid_MOD$pct_65_75 <- (acs_covid_MOD$pct_65_74 + acs_covid_MOD$pct_75)
+
+tm_age_65_75 <- tm_shape(acs_covid_MOD) +
+  tm_polygons("pct_65_75",
+    title = "Percent of People Aged 65+\n(ACS 2014-2018)",
     style = "quantile",
     border.alpha = .2,
     lwd = 0.2,
@@ -441,7 +445,7 @@ tm_age_75 <- tm_shape(acs_covid) +
     legend.text.size = 0.5
   )
 
-tm_age_75
+tm_age_65_75
 ```
 
 ## Descriptive statistics
@@ -462,6 +466,26 @@ acs_covid_stats <- acs_covid %>%
 
 acs_covid_stats %>%
   kable(caption = "Reproduced Descriptive Statistics",
+        align = "c") %>%
+  column_spec(2:6, width_min = "5em") %>%
+  column_spec(7, width_min = "2em") %>%
+  kable_styling(full_width = FALSE)
+```
+
+**Unplanned deviation** We reproduce the descriptive statistics, this time using the new age column for those aged 65+. 
+
+```{r descriptive-statistics-with 65+}
+acs_covid_stats_NEW <- acs_covid_MOD %>%
+  st_drop_geometry() %>%
+  select(covid_rate, contains("pct")) %>%
+  stat.desc(norm = TRUE) %>%
+  round(2) %>%
+  t() %>%
+  as.data.frame() %>%
+  select(min, max, mean, SD = std.dev, ShapiroWilk = normtest.W, p = normtest.p)
+
+acs_covid_stats_NEW %>%
+  kable(caption = "Descriptive Statistics",
         align = "c") %>%
   column_spec(2:6, width_min = "5em") %>%
   column_spec(7, width_min = "2em") %>%
@@ -2088,10 +2112,11 @@ The choropleth map visualizing each county's weight in GEE model originally had 
 
 The **rationale for updated report** section was moved to the end of the paper. 
 
-A map visualizing the percentage of people aged 75+ was also added. The two original maps investigate the relationship between COVID-19 incidence and disability.
-However, disability is a broad category, made up of several different socio-demographic factors, and I visualized one of those categories. It could be worth exploring if there are clusters or groups of old people living together (eg. in retirement communities). 
-Given the fact that older people are at higher risk of being affected by COVID-19, I chose to look at age, and in particular, those who were 75+.
-For the future, it would be worthwhile to expand this category from 75+ to 65+, which would combine two of the colums from the original acs_covid data, as this would better represent the population at risk.
+A map visualizing the percentage of people aged 65+ was also added. The two original maps investigate the relationship between COVID-19 incidence and disability.
+However, disability is a broad category, made up of several different socio-demographic factors, and I visualized one of those categories.
+Given the fact that older adults are at greater risk of being impacted by COVID-19, I combined those aged 65_74 with those 75+, as this new category would better represent a population who is at risk. 
+Furthermore, the Pearson's correlation coefficients for both age groups in the original study are statistically significant when p<0.01, which indicates a negative correlation between COVID-19 incidence and these age groups. This is a surprising result; given that these are populations at higher risk of COVID-19, it seems counter intuitive that counties with greater percentages of older people would be experiencing smaller incidences of COVID-19.
+Comparing the COVID-19 incidence map and the Age 65+ Map, there does not seem to be much of a spatial relationship between COVID-19 incidence and old age. This conclusion could be verified by running a new Pearsons' r test. 
 
 # Conclusions
 
