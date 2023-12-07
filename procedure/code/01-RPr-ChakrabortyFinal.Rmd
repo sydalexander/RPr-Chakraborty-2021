@@ -10,7 +10,7 @@ knit: (function(inputFile, encoding) {
   rmarkdown::render(inputFile, encoding = encoding, output_dir = "../../docs") })
 ---
 
-Version 2.1 \| First Created July 7, 2021 \| Updated September 21, 2023
+Version 2.1 \| First Created July 7, 2021 \| Updated December 7, 2023
 
 # Abstract
 
@@ -184,7 +184,7 @@ American Community Survey (ACS) data for sociodemographic subcategories of peopl
 acs <- get_acs(
   geography = "county",
   table = "S1810",
-  year = 2018,
+  year = 2020,
   output = "wide",
   cache_table = TRUE,
   geometry = TRUE,
@@ -195,7 +195,7 @@ acs <- get_acs(
 acs_pov <- get_acs(
   geography = "county",
   table = "C18130",
-  year = 2018,
+  year = 2020,
   output = "wide",
   cache_table = TRUE
 )
@@ -203,7 +203,7 @@ acs_pov <- get_acs(
 # Query state geographic data
 state <- get_acs(
   geography = "state",
-  year = 2018,
+  year = 2020,
   variables = c("B01001_001"),
   geometry = TRUE,
   keep_geo_vars = TRUE
@@ -244,22 +244,6 @@ acs <- left_join(acs, acs_pov, by = "GEOID")
 rm(acs_pov)
 ```
 
-Optionally, save the raw ACS data to `data/raw/public/acs.gpkg` for use in GIS software.
-
-```{r save-ACS, message = F, eval = FALSE}
-# Save downloaded acs data to acs.gpkg
-write_sf(
-  acs,
-  here("data", "derived", "public", "acs.gpkg"),
-  layer = "acs"
-)
-write_sf(
-  state,
-  here("data", "derived", "public", "acs.gpkg"),
-  layer = "state"
-)
-```
-
 Calculate independent socio-demographic variables of people with disabilities as percentages for each sub-category of disability (race, ethnicity, poverty, age, and biological sex) and remove raw census data from the data frame (workflow step 4).
 Reproject the data into an Albers equal area conic projection.
 
@@ -289,17 +273,20 @@ acs_derived <- mutate(acs,
 )
 
 # select only relevant geographic identifiers and derived percentages
-#acs_derived <- acs_derived %>%
- # select(
-  #  fips = GEOID,
-  #  statefp = STATEFP,
-  #  county = NAME.x,
-  #  county_st = NAME,
-  #  contains("pct")
-#  )
+# and transform to USA Contiguous Albers Equal Area Conic projection
+acs_derived <- acs_derived %>%
+  select(
+    fips = GEOID,
+    COUNTYFP = COUNTYFP,
+    statefp = STATEFP,
+    county = NAME.x,
+    county_st = NAME,
+    contains("pct")
+  ) %>%
+  st_transform(5070)
 ```
 
-## COVID-19 data
+## Excess death data
 
 Data on COVID-19 cases from the Johns Hopkins University dashboard have been provided directly with the research compendium because the data is no longer available online in the state in which it was downloaded on August 1, 2020.
 The dashboard and cumulative counts of COVID-19 cases and deaths were continually updated, so an exact reproduction required communication with the original author, Jayajit Chakraborty, for assistance with provision of data from August 1, 2020.
@@ -327,25 +314,10 @@ saveRDS(death, file = here("data", "raw", "private", "excess_death.RDS"))
 Calculate the COVID incidence rate as the cases per 100,000 people (workflow step 2).
 Convert the COVID data to a non-geographic data frame.
 
-```{r covid-rate}
+```{r covid-rate, eval = FALSE}
 death_table <- death %>%
   mutate(covid_rate = round(death$covid_deaths_2020 / death$all_cause_deaths_2020 * 100000, 2)) %>%
   st_drop_geometry()
-```
-
-##Join dependent COVID data to independent ACS demographic data.
-##NO RUN
-
-```{r join-covid-to-acs}
-# Join COVID incidence rate data to acs data
-acs_covid <- acs_derived %>%
-  left_join(covid_table, by = "fips")
-
-# move covid_rate column prior to disability percentages
-acs_covid <- acs_covid %>%
-  select(fips, statefp, county, county_st, covid_rate, everything())
-
-rm(acs, acs_derived, covid)
 ```
 
 ### Join COVID data to ACS data
@@ -353,12 +325,11 @@ rm(acs, acs_derived, covid)
 
 # select only relevant variables and typecast geographic identifiers
 # join covid data to demographic data
-death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code, excess_deaths_2020, excess_death_rate_2020)
-acs_derived$COUNTYFP <- as.numeric(acs_derived$COUNTYFP)
-acs_covid <- left_join(acs_derived, death_table, by = c("COUNTYFP" = "county_code")) 
+death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code,covid_death_rate_2020, excess_deaths_2020, excess_death_rate_2020)
+acs_derived$fips <- as.numeric(acs_derived$fips)
+acs_covid <- left_join(acs_derived, death_table, by = c("fips" = "county_code")) 
 
 ```
-
 
 ## Missing data
 
@@ -382,13 +353,13 @@ acs_covid[is.na(acs_covid$bpov_pct), ]$bpov_pct <- 0
 acs_covid[is.na(acs_covid$apov_pct), ]$apov_pct <- 0
 ```
 
-## Map COVID-19 incidence
+## Map Excess Death Incidence (previously COVID-19 incidence)
 
-Map the county level distribution of COVID-19 incidence rates, comparing to Figure 1 of the original study.
+Map the county level distribution of excess death incidence rates, comparing to Figure 1 of the original study.
 
-```{r map-covid-rates, message = FALSE}
-tm_covid_rates <- tm_shape(acs_covid) +
-  tm_polygons("covid_rate",
+```{r map-excess-death-rates, message = FALSE}
+tm_covid_rates <- tm_shape(death_table) +
+  tm_polygons("excess_death_rate_2020",
     title = "COVID-19 Cases per 100,000 people\n(22 January 2020 to 1 August 2020)",
     style = "quantile",
     border.alpha = .2,
@@ -432,14 +403,14 @@ tm_disability_rates
 
 ## Descriptive statistics
 
-Calculate descriptive statistics for dependent COVID-19 rate and independent socio-demographic characteristics, reproducing the min, max, mean, and SD columns of original study table 1.
+Calculate descriptive statistics for dependent excess death rate and independent socio-demographic characteristics, reproducing the min, max, mean, and SD columns of original study table 1.
 
 **Planned deviation for reanalysis**: We also calculate the Shapiro Wilk test for normality.
 
 ```{r descriptive-statistics}
 acs_covid_stats <- acs_covid %>%
   st_drop_geometry() %>%
-  select(covid_rate, contains("pct")) %>%
+  select(excess_death_rate_2020, contains("pct")) %>%
   stat.desc(norm = TRUE) %>%
   round(2) %>%
   t() %>%
@@ -487,27 +458,6 @@ pearsons_r %>%
   column_spec(2:4, width = "4em") %>%
   kable_styling(full_width = FALSE)
 ```
-
-##MAYBE REMOVE?
-*Unplanned Deviation for Reproduction*: Considering the precise bitwise reproduction of descriptive statistics and of correlation statistics from author-provided data, we decided to recalculate the COVID-19 incidence rate with author-provided case and population data for comparison to the author-provided incidence rate.
-
-```{r compare-incidence-rate}
-# recalculate Incidence Rate
-original_gee <- original_gee %>%
-  mutate(recalc_Incidence = round(Cases / Total_POP * 100000, 2))
-
-# compare recalculation to author-provided original data and print any counties
-# with inconsistent results
-original_gee %>%
-  filter(recalc_Incidence != Incidence) %>%
-  select(FIPS = COUNTY_FIPS, State = ST_Name, County = Countyname, Population = Total_POP, Cases, OR_Incidence = Incidence, RPr_Incidence = recalc_Incidence) %>%
-  mutate(Difference = RPr_Incidence - OR_Incidence) %>%
-  kable(caption = "Counties with inconsistent COVID-19 incidence rate") %>%
-  kable_styling(latex_options = "scale_down")
-```
-
-We found that 13 counties had incorrect COVID-19 incidence scores, and the scores seem to be transposed from other counties, such that the overall descriptive statistics were accurate but the correlation coefficients were inaccurate.
-This finding implies that subsequent analyses using the COVID-19 Incidence rate will be slightly different and more accurate in this reproduction study than in the original study.
 
 ## Bivariate nonparametric correlation analysis
 
@@ -659,17 +609,6 @@ rm(covid_geo, expected.cases, start_time)
 # save results in a file appended with the current date
 saveRDS(covid_kulldorff,
   file = here("data", "derived", "public", paste0("covid_kulldorff_", Sys.Date(), ".RDS"))
-)
-```
-
-Load pre-calculated Kulldorff spatial scan results.
-Alternatively, skip or modify this code block to use your own version of the SpatialEpi Kulldorff results.
-
-```{r load-Kulldorff}
-# load pre-calculated Kulldorff results
-# alternatively, modify the file name with an appended date to load a more current set of results
-covid_kulldorff <- readRDS(
-  here("data", "derived", "public", "covid_kulldorff.RDS")
 )
 ```
 
