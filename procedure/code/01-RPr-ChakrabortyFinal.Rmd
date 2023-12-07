@@ -298,9 +298,8 @@ Versions of the data can be found at the John Hopkins CCSE COVID-19 Data Reposit
 However, archived data only provides summaries at the national scale.
 We received the COVID-19 case data through 8/1/2020 at the county level from the author, as there is no readily apparent way to access archived data from the Johns Hopkins University Center for Systems Science Engineering database.
 
-##NEW: Load Excess Mortality Data 2020
-### Load COVID-19 data 
-```{r load and save covid data}
+##Load Excess Mortality Data 2020
+```{r load and save edeath data}
 
 githubURL <- ("https://github.com/Vital-Stats-Integrity-Proj/county-level-estimates-of-excess-mortality/raw/master/final_data/fitted_and_actual_deaths_county_sets_2020_W2020_wash_6_3_countyrow.rds")
 
@@ -310,47 +309,59 @@ saveRDS(death, file = here("data", "raw", "private", "excess_death.RDS"))
 
 ```
 
-##NO-RUN??? NEW Excess Death COVID-19 data transformations
-Calculate the COVID incidence rate as the cases per 100,000 people (workflow step 2).
-Convert the COVID data to a non-geographic data frame.
+# load Covid Data (need the XY coords for kulldorff)
+```{r load-covid-data}
+covid <- read_sf(here("data", "raw", "public", "covidcase080120.gpkg"))
 
-```{r edeath-rate, eval = FALSE}
-death_table <- death %>%
-  mutate(edeath_rate = round(death$excess_deaths_2020 / death$all_cause_deaths_2020 * 100000, 2)) %>%
-  st_drop_geometry()
+# select and rename the fips code, population, cases, and x,y coordinates
+covid <- select(covid,
+  fips = FIPS,
+  pop = POP_ESTIMA,
+  cases = Confirmed,
+  x = X, y = Y
+) %>%
+st_drop_geometry()
 ```
 
-### Join COVID data to ACS data
+#Add XY Data (for running kulldorff)
+
+```{r new table covid}
+death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code, cens_pop_est, covid_death_rate_2020, excess_deaths_2020, excess_death_rate_2020)
+covid$fips <- as.numeric(acs_derived$fips)
+CovidGeo <- left_join(covid, death_table, by = c("fips" = "county_code"))
+```
+
+### Join excess death/COVID data to ACS data
 ```{r join data}
 
 # select only relevant variables and typecast geographic identifiers
 # join covid data to demographic data
-death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code,covid_death_rate_2020, excess_deaths_2020, excess_death_rate_2020)
+death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code, cens_pop_est, covid_death_rate_2020, excess_deaths_2020, excess_death_rate_2020)
 acs_derived$fips <- as.numeric(acs_derived$fips)
 acs_covid <- left_join(acs_derived, death_table, by = c("fips" = "county_code")) 
 
 ```
 
-## Missing data
+## Missing data (DOESN'T WORK)
 
 **Unplanned deviation for reproduction**: There is one county with missing disability and poverty data.
 This was not mentioned in the original study or in our pre-analyis plan.
-However, we replace the missing data with zeros, producing results identical to Chakraborty's.
+However, we replace the missing data with zeros, which is necessary to run later statistical tests and the Kulldorff model.
 
 ```{r missing data table FIX}
 #FIX - Missing Data Clean Table
 #changed the Kable parameters in the original code block to improve the formatting of the table
 # county with missing data
  
-# WORKS
+# I can't get this to worK :()
 filter(acs_covid, is.na(bpov_pct)) %>% st_drop_geometry() %>% 
   t() %>%
   kable(col.names = c("Value"), align = "c", caption = "Missing County Data") %>%
   kable_styling(full_width = FALSE)
 
 # replace NA with 0 for missing data
-acs_covid[is.na(acs_covid$bpov_pct), ]$bpov_pct <- 0
-acs_covid[is.na(acs_covid$apov_pct), ]$apov_pct <- 0
+acs_covid[is.na(acs_covid$excess_deaths_2020), ]$excess_deaths_2020 <- 0
+acs_covid[is.na(acs_covid$cens_pop_est), ]$cens_pop_est <- 0
 ```
 
 ## Map Excess Death Incidence (previously COVID-19 incidence)
@@ -358,9 +369,34 @@ acs_covid[is.na(acs_covid$apov_pct), ]$apov_pct <- 0
 Map the county level distribution of excess death incidence rates, comparing to Figure 1 of the original study.
 
 ```{r map-excess-death-rates, message = FALSE}
-tm_covid_rates <- tm_shape(acs_covid) +
+tm_edeath_rates <- tm_shape(acs_covid) +
   tm_polygons("excess_death_rate_2020",
-    title = "Excess Death Cases per 100,000 people\n(March 2020 to 1 December 2020)",
+    title = "Excess Death Rates\n(March 2020 to 1 December 2020)",
+    style = "quantile",
+    border.alpha = .2,
+    lwd = 0.2,
+    palette = "Oranges",
+  ) +
+  tm_shape(state) +
+    tm_borders("grey", lwd = .5) +
+  tm_layout(
+    legend.position = c("left", "bottom"),
+    legend.title.size = 0.8,
+    legend.text.size = 0.5
+  )
+
+tm_edeath_rates
+```
+
+## Map COVID-19 incidence
+## Compare COVID-19 incidene with excess deaths?
+
+Map the county level distribution of COVID-19 incidence rates, comparing to Figure 1 of the original study.
+
+```{r map-covid-rates, message = FALSE}
+tm_covid_rates <- tm_shape(acs_covid) +
+  tm_polygons("covid_death_rate_2020",
+    title = "COVID-19 Death Rates\n(March 2020 to 1 December 2020)",
     style = "quantile",
     border.alpha = .2,
     lwd = 0.2,
@@ -377,7 +413,7 @@ tm_covid_rates <- tm_shape(acs_covid) +
 tm_covid_rates
 ```
 
-## Map covid rates
+## Map disability rates
 
 **Unplanned deviation for reproduction**: We also map the spatial distribution of the percent of people with any disability to improve our understanding of the geographic patterns and relationships of between the overarching independent variable (percentage of people with disability) and the dependent variable (COVID-19 incidence rate).
 
@@ -429,11 +465,11 @@ acs_covid_stats %>%
 
 ## Bivariate parametric correlation analysis
 
-The county-level Pearson's rho correlation coefficient was used to test association between intra-categorical rates of disability and COVID-19 incidence rates.
+The county-level Pearson's rho correlation coefficient was used to test association between intra-categorical rates of disability and excess death rates.
 As this was a parametric test, normality should be tested.
 A separate hypothesis was formulated for disability in aggregate and for each sociodemographic disability characteristic.
 
-Calculate Pearson's R Correlation Coefficient of each independent variable and the COVID-19 incidence rate, reproducing the Pearson's R column of original study Table 1.
+Calculate Pearson's R Correlation Coefficient of each independent variable and the excess death rate, reproducing the Pearson's R column of original study Table 1.
 
 ```{r pearsons-correlation}
 df <- sum(!is.na(acs_covid$dis_pct)) - 2
@@ -441,16 +477,16 @@ df <- sum(!is.na(acs_covid$dis_pct)) - 2
 pearsons_r <- acs_covid %>%
   select(where(is.numeric)) %>%
   st_drop_geometry() %>%
-  cor(method = "pearson", use = "everything") %>%
+  cor(method = "pearson", use = "complete.obs") %>%
   as.data.frame() %>%
-  select(r = covid_rate) %>%
+  select(r = excess_death_rate_2020) %>%
   mutate(
     t = abs(r) / sqrt((1 - r^2) / (df)),
     p = pt(t, df, lower.tail = FALSE)
   ) %>%
   round(3) %>%
   rownames_to_column("variable") %>%
-  filter(variable != "covid_rate")
+  filter(variable != "excess_death_rate_2020")
 
 pearsons_r %>%
   kable(caption = "Reproduced Pearson's R",
@@ -470,16 +506,16 @@ df <- sum(!is.na(acs_covid$dis_pct)) - 2
 spearmans_rho <- acs_covid %>%
   select(where(is.numeric)) %>%
   st_drop_geometry() %>%
-  cor(method = "spearman", use = "everything") %>%
+  cor(method = "spearman", use = "complete.obs") %>%
   as.data.frame() %>%
-  select(rho = covid_rate) %>%
+  select(rho = excess_death_rate_2020) %>%
   mutate(
     t = abs(rho) / sqrt((1 - rho^2) / (df)),
     p = pt(t, df, lower.tail = FALSE)
   ) %>%
   round(3) %>%
   rownames_to_column("variable") %>%
-  filter(variable != "covid_rate")
+  filter(variable != "excess_death_rate_2020")
 ```
 
 Compare the Spearman's *rho* correlation coefficients to the reproduced Pearson's *r* correlation coefficients.
@@ -518,26 +554,26 @@ In such distributions, outlier observations have more weight in the parametric P
 
 ```{r plot-bivariate, fig.width=4, fig.height=4}
 plot(acs_covid$native_pct,
-  acs_covid$covid_rate,
+  acs_covid$excess_death_rate_2020,
   xlab = "Percent Native American",
-  ylab = "COVID-19 Incidence",
+  ylab = "Excess Death Incidence",
   pch = 16,
   col = rgb(0, 0, 0, 0.05),
   cex.lab = 0.8,
   cex.axis = 0.5,
 )
-lines(abline(lm(acs_covid$covid_rate ~ acs_covid$native_pct)))
+lines(abline(lm(acs_covid$excess_death_rate_2020 ~ acs_covid$native_pct)))
 
 rm(spearmans_rho, pearsons_r, correlations, table1, df)
 ```
 
 ## Kulldorff spatial scan statistic
 
-Although there were no major geographic *transformations* in this study, *geographic grouping criteria* for the generalized estimating equation (GEE) models are defined as a combination of states and COVID-19 risk, which is based on the Kulldorff spatial scan statistic for geographic clusters of high COVID-19 incidence.
+Although there were no major geographic *transformations* in this study, *geographic grouping criteria* for the generalized estimating equation (GEE) models are defined as a combination of states and COVID-19 risk, which is based on the Kulldorff spatial scan statistic for geographic clusters of high excess death incidence.
 The scan statistic in SaTScan used spherical great circle distance calculations based upon the latitude and longitude coordinates of the centroid of each county.
 For this purpose, we have used the `X` and `Y` attributes provided as geographic variables with ACS data.
 
-We use a Kulldorff spatial scan statistic to detect spatial clusters of high COVID-19 incidence (workflow step 6).
+We use a Kulldorff spatial scan statistic to detect spatial clusters of high excess death incidence (workflow step 6).
 The statistic uses a Monte Carlo simulation to calculate statistical significance, and therefore may not produce identical results each time.
 
 The original study uses SaTScan software to implement the Kulldorff spatial scan statistic model.
@@ -575,20 +611,23 @@ Optionally, skip this code block due to long run times of more than 10 minutes.
 
 ```{r SpatialEpi-Kulldorff, eval = FALSE, fig.width=4, fig.height=4}
 start_time <- Sys.time()
-covid_geo <- covid_table %>%
+covid_geo <- CovidGeo %>%
   select(x, y) %>%
   latlong2grid()
 # latlong2grid creates approximate equidistant cylindrical grid
 # could probably reproject to epsg 5070 and create table with x and y
 
+#covid_geo <- as.numeric(unlist(covid_geo))
+#class(covid_geo)
+
 # calculate expected cases with one strata
-expected.cases <- expected(covid_table$pop, covid_table$cases, 1)
+expected.cases <- expected(acs_covid$cens_pop_est, acs_covid$excess_deaths_2020, 1)
 
 # Kulldorff spatial scan statistic
 covid_kulldorff <- kulldorff(
   geo = covid_geo,
-  cases = covid_table$cases,
-  population = covid_table$pop,
+  cases = acs_covid$excess_deaths_2020,
+  population = acs_covid$cens_pop_est,
   expected.cases = expected.cases,
   pop.upper.bound = 0.5,
   n.simulations = 999,
@@ -609,6 +648,16 @@ rm(covid_geo, expected.cases, start_time)
 # save results in a file appended with the current date
 saveRDS(covid_kulldorff,
   file = here("data", "derived", "public", paste0("covid_kulldorff_", Sys.Date(), ".RDS"))
+)
+```
+Load pre-calculated Kulldorff spatial scan results.
+Alternatively, skip or modify this code block to use your own version of the SpatialEpi Kulldorff results.
+
+```{r load-Kulldorff}
+# load pre-calculated Kulldorff results
+# alternatively, modify the file name with an appended date to load a more current set of results
+covid_kulldorff <- readRDS(
+  here("data", "derived", "public", "covid_kulldorff.RDS")
 )
 ```
 
