@@ -310,13 +310,13 @@ saveRDS(death, file = here("data", "raw", "private", "excess_death.RDS"))
 
 ```
 
-##NEW Excess Death COVID-19 data transformations - NO RUN?
+##NO-RUN??? NEW Excess Death COVID-19 data transformations
 Calculate the COVID incidence rate as the cases per 100,000 people (workflow step 2).
 Convert the COVID data to a non-geographic data frame.
 
-```{r covid-rate, eval = FALSE}
+```{r edeath-rate, eval = FALSE}
 death_table <- death %>%
-  mutate(covid_rate = round(death$covid_deaths_2020 / death$all_cause_deaths_2020 * 100000, 2)) %>%
+  mutate(edeath_rate = round(death$excess_deaths_2020 / death$all_cause_deaths_2020 * 100000, 2)) %>%
   st_drop_geometry()
 ```
 
@@ -358,9 +358,9 @@ acs_covid[is.na(acs_covid$apov_pct), ]$apov_pct <- 0
 Map the county level distribution of excess death incidence rates, comparing to Figure 1 of the original study.
 
 ```{r map-excess-death-rates, message = FALSE}
-tm_covid_rates <- tm_shape(death_table) +
+tm_covid_rates <- tm_shape(acs_covid) +
   tm_polygons("excess_death_rate_2020",
-    title = "COVID-19 Cases per 100,000 people\n(22 January 2020 to 1 August 2020)",
+    title = "Excess Death Cases per 100,000 people\n(March 2020 to 1 December 2020)",
     style = "quantile",
     border.alpha = .2,
     lwd = 0.2,
@@ -377,7 +377,7 @@ tm_covid_rates <- tm_shape(death_table) +
 tm_covid_rates
 ```
 
-## Map disability rates
+## Map covid rates
 
 **Unplanned deviation for reproduction**: We also map the spatial distribution of the percent of people with any disability to improve our understanding of the geographic patterns and relationships of between the overarching independent variable (percentage of people with disability) and the dependent variable (COVID-19 incidence rate).
 
