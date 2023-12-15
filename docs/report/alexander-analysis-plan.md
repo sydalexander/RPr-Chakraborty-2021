@@ -19,6 +19,8 @@ The final choropleth map has a mistaken parameter causing it to use only half of
 
 The missing data table formatting currently does not match the formatting of the other tables in the reproduction study; I will modify it using the **Kable/KableExtra** functions to match the formatting of the other tables.
 
+I will create a new map visualizing what I think is a more accurate elderly population. Right now, Chakraborty has a column for ages 65-74 (pct_65_74) and one for ages 75+ (pct_75). Both of these populations are vulnerable to COVID-19 in terms of age, given that older people were more susceptible to the disease. Therefore, I will create a new column which will be the sum of these two columns which will better reflect an at-risk group (acs_covid_MOD$pct_65_75).
+
 I will move the rationale for the updated report to the very end, which will improve the flow of the paper. Emily's discussion, currently beneath the rationale, will be incorporated into the original discussion of the reproduction study, which will complete the discussion study rather than having it stretch between several different headings.
 
 Any concluding statements about the success and effectiveness of the reproduction study will be separated out into a separate Conclusions section, which will also improve the logical flow of the paper and make it easier to follow.

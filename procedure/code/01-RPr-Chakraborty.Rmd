@@ -431,7 +431,7 @@ acs_covid_MOD$pct_65_75 <- (acs_covid_MOD$pct_65_74 + acs_covid_MOD$pct_75)
 
 tm_age_65_75 <- tm_shape(acs_covid_MOD) +
   tm_polygons("pct_65_75",
-    title = "Percent of People Aged 65+\n(ACS 2014-2018)",
+    title = "Percent of People Aged 65+ With a Disability\n(ACS 2014-2018)",
     style = "quantile",
     border.alpha = .2,
     lwd = 0.2,
@@ -2116,6 +2116,8 @@ A map visualizing the percentage of people aged 65+ was also added. The two orig
 However, disability is a broad category, made up of several different socio-demographic factors, and I visualized one of those categories.
 Given the fact that older adults are at greater risk of being impacted by COVID-19, I combined those aged 65_74 with those 75+, as this new category would better represent a population who is at risk. 
 Furthermore, the Pearson's correlation coefficients for both age groups in the original study are statistically significant when p<0.01, which indicates a negative correlation between COVID-19 incidence and these age groups. This is a surprising result; given that these are populations at higher risk of COVID-19, it seems counter intuitive that counties with greater percentages of older people would be experiencing smaller incidences of COVID-19.
+It makes sense that the elderly with disability map correlates with the overall disability map given how common disabilities are with the elderly.
+There are certain areas of the map including the Appalachia region, northern Michigan, as well as southern states including Missouri, Oklahoma, and Arkansas, where the elderly population with disabilities is fairly high that have a low spread of COVID-19. By the time Chakraborty conducted his study in 2018, it was likely that COVID-19 had not yet spread to these areas. Oppositely, there were high rates of COVID-19 in metropolitan areas with very little elderly disability, including the east coast Megalopolis, Miami, and in California (Holler). 
 Comparing the COVID-19 incidence map and the Age 65+ Map, there does not seem to be much of a spatial relationship between COVID-19 incidence and old age. This conclusion could be verified by running a new Pearsons' r test. 
 
 # Conclusions
