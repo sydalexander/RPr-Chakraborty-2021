@@ -1,0 +1,901 @@
+---
+title: "01-RPr-ChakrabortyFin.Rmd"
+author: "Joseph Holler, Junyi Zhou, Peter Kedron, Drew An-Pham, Derrick Burt, Sydney Alexander, Audrey Park"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options:
+  markdown:
+    wrap: sentence
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../../docs") })
+---
+
+Version 2.1 \| First Created July 7, 2021 \| Updated December 7, 2023
+
+# Abstract
+
+Chakraborty (2021) investigates the relationships between COVID-19 rates and demographic characteristics of people with disabilities by county in the continental United States.
+The aim of the study is to investigate whether people with disabilities (PwDs) face disproportionate challenges due to COVID-19.
+To do so, Chakraborty examines the statistical relationship between county incidence rates of COVID-19 cases and county-level percentages of people with disabilities and different socio-demographic characteristics.
+Specifically, Chakraborty tests county-level bivariate correlations between COVID-19 incidence against the percentage of disability as one hypothesis, and tests correlation between COVID-19 incidence and percentage of people with disabilities in 18 different socio-demographic categories of race, ethnicity, poverty status, age, and biological sex.
+Chakraborty then re-tests for the same county-level associations while controlling for spatial dependence.
+Spatial dependence is controlled by constructing generalized estimating equation (GEE) models using a combination of state and spatial clusters of COVID-19 incidence as to define the GEE clusters.
+One GEE model is constructed for each of the four types of socio-demographic category: race, ethnicity, age, and biological sex.
+Chakraborty (2021) finds significant positive relationships between COVID-19 rates and socially vulnerable demographic categories of race, ethnicity, poverty status, age, and biological sex.
+
+This reproduction study is motivated by expanding the potential impact of Chakraborty's study for policy, research, and teaching purposes.
+Measuring the relationship between COVID-19 incidence and socio-demographic and disability characteristics can provide important information for public health policy-making and resource allocation.
+A fully reproducible study will increase the accessibility, transparency, and potential impact of Chakraborty's (2021) study by publishing a compendium complete with metadata, data, and code.
+This will allow other researchers to review, extend, and modify the study and will allow students of geography and spatial epidemiology to learn from the study design and methods.
+
+In this reproduction, we will attempt to identically reproduce all of the results from the original study.
+This will include the map of county level distribution of COVID-19 incidence rates (Fig. 1), the summary statistics for disability and sociodemographic variables and bivariate correlations with county-level COVID-19 incidence rate (Table 1), and the GEE models for predicting COVID-19 county-level incidence rate (Table 2).
+A successful reproduction should be able to generate identical results as published by Chakraborty (2021).
+
+The reproduction study data and code are available in public a GitHub repository at [github.com/HEGSRR/RPr-Chakraborty2021](https://github.com/HEGSRR/RPr-Chakraborty2021) and the analysis plans and reports are registered with OSF at <https://doi.org/10.17605/OSF.IO/S5MTQ>.
+The reproduction is implemented with R markdown using the `SpatialEpi` package for the Kulldorff spatial scan statistic packages and the `geepack` package for the generalized estimating equation.
+
+Chakraborty, J.
+2021.
+Social inequities in the distribution of COVID-19: An intra-categorical analysis of people with disabilities in the U.S.
+*Disability and Health Journal* 14:1-5.
+<https://doi.org/10.1016/j.dhjo.2020.101007>
+
+## Keywords
+
+COVID-19; Disability; Intersectionality; Race/ethnicity; Poverty; Reproducibility
+
+# Study design
+
+The aim of this reproduction study is to implement the original study as closely as possible to reproduce the map of county level distribution of COVID-19 incidence rate, the summary statistics and bivariate correlation for disability characteristics and COVID-19 incidence, and the generalized estimating equations.
+Our two confirmatory hypotheses are that we will be able to exactly reproduce Chakraborty's results as presented in table 1 and table 2.
+Stated as null reproduction study hypotheses (RPr-H):
+
+> RPr-H1: There is a less than perfect match between Chakraborty's bivariate correlation coefficient for each disability/sociodemographic variable and COVID-19 incidence rate and our bivariate correlation coefficient for each disability/sociodemographic variable and COVID-19 incidence rate.
+
+> RPr-H2: There is a less than perfect match between Chakraborty's beta coefficient for the GEE of each disability/sociodemographic variable and our beta coefficient for the GEE of each disability/sociodemographic variable.
+
+There are multiple models being tested within each of the two hypotheses.
+That is, H1 and H2 both encompass five models, including one for each dimension of socio-demographics: race, ethnicity, poverty status, age, and biological sex.
+
+The original study is **observational**, with the **exploratory** objective of determining "whether COVID-19 incidence is significantly greater in counties containing higher percentages of socio-demographically disadvantaged [people with disabilities], based on their race, ethnicity, poverty status, age, and biological sex" (Chakraborty 2021).
+
+In the original study, 18 implicit bivariate hypotheses are tested for correlation between COVID-19 cumulative incidence rates and specific categories of PwDs at the county level.
+Although the original publication does not state null hypotheses for each bivariate correlation, we may formulate the original research hypotheses (OR-H) as follows:
+
+> OR-H1.1: There is no correlation between the COVID-19 incidence rate and the percentage of people with disabilities at the county level.
+> OR-H1.2: There is no correlation between the COVID-19 incidence rate and the percentage of white people with disabilities at the county level.
+> ... OR-H1.18 There is no correlation between the COVID-19 incidence rate and the percentage of female people with disabilities at the county level.
+
+Five multi-variate hypotheses are tested for associations between COVID-19 cumulative incidence rates and subgroups of PwDs at the county level.
+Although the original publication does not state null hypotheses for each model, we may formulate them as follows:
+
+> OR-H2.1: The percentages of people with disability, categorized by race, are not associated with COVID-19 incidence at the county level when accounting for the state and risk level of COVID-19 clusters.
+> ... OR-H2.5: The percentages of people with disability, categorized by gender, are not associated with COVID-19 incidence at the county level when accounting for the state and risk level of COVID-19 clusters.
+
+# Original Study Design
+
+The **spatial extent** of the study is the continental United States (48 contiguous states and Washington D.C.) The **spatial scale** of the analysis is at the county level.
+Both COVID-19 incidence rates and demographic variables are all measured at the county level.
+The **temporal extent** of the COVID-19 data ranges from 1/22/2020 (when John Hopkins began collecting the data) to 8/1/2020 (when the data was retrieved for the original study).
+The data on disability and sociodemographic characteristics come from the U.S.
+Census American Community Survey (ACS) five-year estimates for 2018 (2014-2018).
+
+There is no **randomization** in the original study.
+
+![](../../docs/report/workflow.jpg "Workflow diagram")
+
+In this reproduction, we reproduce parts of Chakraborty's study using excess death data from 2020 instead of COVID-19 cases.
+
+# Computational environment
+
+The study was originally conducted using SaTScan software to implement the Kulldorff spatial scan statistic.
+Other software are not specified in the publication; however data files suggest and communication with the author verifies that spatial analysis and mapping was conducted in ArcGIS, generalized estimating equation (GEE) models were calculated in SPSS, and the SaTScan software version was `9.6`.
+
+This reproduction study uses R, including the SpatialEpi package for the Kulldorff spatial scan statistics and the geepack package for GEE models.
+
+```{r setup, include = FALSE}
+# list of required packages
+packages <- c(
+  "tidycensus", "tidyverse", "downloader", "sf", "classInt", "readr",
+  "here", "s2", "pastecs", "tmap", "SpatialEpi", "svDialogs",
+  "geepack", "knitr", "kableExtra", "foreign", "broom", "dotwhisker", "dotenv", "kableExtra"
+)
+
+# load and install required packages
+if(!require(groundhog)){
+  install.packages("groundhog")
+  require(groundhog)
+}
+
+if(!require(here)){
+  install.packages("here")
+  require(here)
+}
+
+groundhog.day <- "2023-06-26"
+set.groundhog.folder(here("data", "scratch", "groundhog"))
+
+groundhog.library(packages, groundhog.day)
+# you may need to...
+# install a correct version of R
+# install the rstudioapi package with install.packages("rstudioapi")
+# respond OK in the console to permit groundhog to install packages
+# restart the R session and rerun this code to load installed packages
+# In RStudio, restart r with Session -> Restart Session
+
+# non-groundhog method for installing packages:
+# lapply(packages, library, character.only = TRUE)
+
+# save the R processing environment
+writeLines(
+  capture.output(sessionInfo()),
+  here("procedure", "environment", paste0("r-environment-", Sys.Date(), ".txt"))
+)
+
+# set up default knitr parameters
+knitr::opts_chunk$set(
+  echo = FALSE,
+  fig.width = 8,
+  fig.path = paste0(here("results", "figures"), "/")
+)
+```
+
+# Data
+
+## ACS Socio-demographic data
+
+The American Community Survey (ACS) five-year estimate (2014-2018) variables used in the study are outlined in the table below.
+Details on ACS data collection can be found at <https://www.census.gov/topics/health/disability/guidance/data-collection-acs.html> and details on sampling methods and accuracy can be found at <https://www.census.gov/programs-surveys/acs/technical-documentation/code-lists.html>.
+
+|                            Variable Name in Study                            |                                               ACS Variable name                                                |
+|:----------------------------------:|:----------------------------------:|
+| percent of total civilian non-institutionalized population with a disability |                                                 S1810_C03_001E                                                 |
+|                                   **Race**                                   |                                                                                                                |
+|                      percent w disability: White alone                       |                                                 S1810_C03_004E                                                 |
+|                      percent w disability: Black alone                       |                                                 S1810_C03_005E                                                 |
+|                    percent w disability: Native American                     |                                                 S1810_C03_006E                                                 |
+|                      percent w disability: Asian alone                       |                                                 S1810_C03_007E                                                 |
+|                       percent w disability: Other race                       |                                                 S1810_C03_009E                                                 |
+|                                **Ethnicity**                                 |                                                                                                                |
+|                   percent w disability: Non-Hispanic White                   |                                                S1810_C03_0011E                                                 |
+|                        percent w disability: Hispanic                        |                                                 S1810_C03_012E                                                 |
+|                 percent w disability: Non-Hispanic non-White                 | (S1810_C02_001E - S1810_C02_011E - S1810_C02_012E) / (S1810_C01_001E - S1810_C01_011E - S1810_C01_012E) \* 100 |
+|                       percent w disability: Other race                       |                                                 S1810_C03_009E                                                 |
+|                                 **Poverty**                                  |                                                                                                                |
+|                  percent w disability: Below poverty level                   |                         (C18130_004E + C18130_011E + C18130_018E) / C18130_001E \* 100                         |
+|                  percent w disability: Above poverty level                   |                         (C18130_005E + C18130_012E + C18130_019E) / C18130_001E \* 100                         |
+|                                   **Age**                                    |                                                                                                                |
+|                          percent w disability: 5-17                          |                                                 S1810_C03_014E                                                 |
+|                         percent w disability: 18-34                          |                                                 S1810_C03_015E                                                 |
+|                         percent w disability: 35-64                          |                                                 S1810_C03_016E                                                 |
+|                         percent w disability: 65-74                          |                                                 S1810_C03_017E                                                 |
+|                          percent w disability: 75+                           |                                                 S1810_C03_018E                                                 |
+|                              **Biological sex**                              |                                                                                                                |
+|                          percent w disability: male                          |                                                 S1810_C03_001E                                                 |
+|                         percent w disability: female                         |                                                 S1810_C03_003E                                                 |
+
+: Disability Subgroup Variables
+
+American Community Survey (ACS) data for sociodemographic subcategories of people with disabilities can be accessed by using the `tidycensus` package to query the Census API. This requires an API key which can be acquired at [api.census.gov/data/key_signup.html](https://api.census.gov/data/key_signup.html).
+
+```{r API-Load-ACS, eval=FALSE}
+# If you wish to use a census API key, run the census_api_key() function in the console
+
+# Query disability demographic data with geographic boundaries
+acs <- get_acs(
+  geography = "county",
+  table = "S1810",
+  year = 2020,
+  output = "wide",
+  cache_table = TRUE,
+  geometry = TRUE,
+  keep_geo_vars = TRUE
+)
+
+# Query poverty and disability data
+acs_pov <- get_acs(
+  geography = "county",
+  table = "C18130",
+  year = 2020,
+  output = "wide",
+  cache_table = TRUE
+)
+
+# Query state geographic data
+state <- get_acs(
+  geography = "state",
+  year = 2020,
+  variables = c("B01001_001"),
+  geometry = TRUE,
+  keep_geo_vars = TRUE
+)
+
+# Save query results
+saveRDS(acs, here("data", "raw", "public", "acs.RDS"))
+saveRDS(acs_pov, here("data", "raw", "public", "acs_pov.RDS"))
+saveRDS(state, here("data", "raw", "public", "state.RDS"))
+```
+
+```{r load-acs}
+acs <- readRDS(here("data", "raw", "public", "acs.RDS"))
+acs_pov <- readRDS(here("data", "raw", "public", "acs_pov.RDS"))
+state <- readRDS(here("data", "raw", "public", "state.RDS"))
+```
+
+### ACS data transformations
+
+The original study extent is the lower 48 states and Washington D.C. Therefore, Alaska, Hawai'i and Puerto Rico are removed from the data (workflow step 1).
+Data on people with disabilities in poverty is derived from a different census table (C18130) than data on people with disabilities and age, race, ethnicity, age, and biological sex (S1810).
+Therefore, join the poverty data to the other data using the GEOID (workflow step 3).
+Also transform the ACS geographic data into Contiguous USA Albers Equal Area projection and fix geometry errors.
+
+```{r filter-join-acs}
+# Remove Alaska, Hawaii & Puerto Rico,
+# transform coordinate system and fix geometries
+acs <- filter(acs, !STATEFP %in% c("02", "15", "72")) %>%
+  st_transform(5070) %>%
+  st_make_valid()
+
+# Remove Alaska, Hawaii & Puerto Rico,
+state <- filter(state, !STATEFP %in% c("02", "15", "72")) %>%
+  st_transform(5070)
+
+# Join poverty data to disability data
+acs <- left_join(acs, acs_pov, by = "GEOID")
+rm(acs_pov)
+```
+
+Calculate independent socio-demographic variables of people with disabilities as percentages for each sub-category of disability (race, ethnicity, poverty, age, and biological sex) and remove raw census data from the data frame (workflow step 4).
+Reproject the data into an Albers equal area conic projection.
+
+```{r Preprocess-ACS}
+# calculate percentages
+acs_derived <- mutate(acs,
+  dis_pct = S1810_C02_001E / S1810_C01_001E * 100,
+  white_pct = S1810_C02_004E / S1810_C01_001E * 100,
+  black_pct = S1810_C02_005E / S1810_C01_001E * 100,
+  native_pct = S1810_C02_006E / S1810_C01_001E * 100,
+  asian_pct = S1810_C02_007E / S1810_C01_001E * 100,
+  other_pct =
+    (S1810_C02_008E + S1810_C02_009E + S1810_C02_010E) / S1810_C01_001E * 100,
+  non_hisp_white_pct = S1810_C02_011E / S1810_C01_001E * 100,
+  hisp_pct = S1810_C02_012E / S1810_C01_001E * 100,
+  non_hisp_non_white_pct =
+    (S1810_C02_001E - S1810_C02_012E - S1810_C02_011E) / S1810_C01_001E * 100,
+  bpov_pct = (C18130_004E + C18130_011E + C18130_018E) / C18130_001E * 100,
+  apov_pct = (C18130_005E + C18130_012E + C18130_019E) / C18130_001E * 100,
+  pct_5_17 = S1810_C02_014E / S1810_C01_001E * 100,
+  pct_18_34 = S1810_C02_015E / S1810_C01_001E * 100,
+  pct_35_64 = S1810_C02_016E / S1810_C01_001E * 100,
+  pct_65_74 = S1810_C02_017E / S1810_C01_001E * 100,
+  pct_75 = S1810_C02_018E / S1810_C01_001E * 100,
+  male_pct = S1810_C02_002E / S1810_C01_001E * 100,
+  female_pct = S1810_C02_003E / S1810_C01_001E * 100
+)
+
+# select only relevant geographic identifiers and derived percentages
+# and transform to USA Contiguous Albers Equal Area Conic projection
+acs_derived <- acs_derived %>%
+  select(
+    fips = GEOID,
+    COUNTYFP = COUNTYFP,
+    statefp = STATEFP,
+    county = NAME.x,
+    county_st = NAME,
+    contains("pct")
+  ) %>%
+  st_transform(5070)
+```
+
+## Excess death data
+
+Data on COVID-19 cases from the Johns Hopkins University dashboard have been provided directly with the research compendium because the data is no longer available online in the state in which it was downloaded on August 1, 2020.
+The dashboard and cumulative counts of COVID-19 cases and deaths were continually updated, so an exact reproduction required communication with the original author, Jayajit Chakraborty, for assistance with provision of data from August 1, 2020.
+The data includes an estimate of the total population (`POP_ESTIMA`) and confirmed COVID-19 cases (`Confirmed`).
+The COVID-19 case data expresses cumulative count of reported COVID-19 from 1/22/2020 to 8/1/2020.
+Although metadata for this particular resource is no longer available from the original source, one can reasonably assume that the total population estimate was based on the 2014-2018 5-year ACS estimate, as the 2019 estimates data had not been released yet.
+
+Versions of the data can be found at the John Hopkins CCSE COVID-19 Data Repository (<https://github.com/CSSEGISandData/COVID-19>).
+However, archived data only provides summaries at the national scale.
+We received the COVID-19 case data through 8/1/2020 at the county level from the author, as there is no readily apparent way to access archived data from the Johns Hopkins University Center for Systems Science Engineering database.
+
+##Load Excess Mortality Data 2020
+```{r load and save edeath data}
+
+githubURL <- ("https://github.com/Vital-Stats-Integrity-Proj/county-level-estimates-of-excess-mortality/raw/master/final_data/fitted_and_actual_deaths_county_sets_2020_W2020_wash_6_3_countyrow.rds")
+
+death <- readRDS(url(githubURL))
+
+saveRDS(death, file = here("data", "raw", "private", "excess_death.RDS"))
+
+```
+
+We load the COVID data, which has XY coordinates necessary for creating Kulldorff models later on. We attach it to the *death_table*.
+
+# Load Covid Data (need the XY coords for kulldorff)
+```{r load-covid-data}
+covid <- read_sf(here("data", "raw", "public", "covidcase080120.gpkg"))
+
+# select and rename the fips code, population, cases, and x,y coordinates
+covid <- select(covid,
+  fips = FIPS,
+  pop = POP_ESTIMA,
+  cases = Confirmed,
+  x = X, y = Y
+) %>%
+st_drop_geometry()
+```
+
+#Add XY Data (for running kulldorff)
+
+```{r new table covid}
+death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code, cens_pop_est, covid_death_rate_2020, excess_deaths_2020, excess_death_rate_2020)
+covid$fips <- as.numeric(acs_derived$fips)
+death_table <- left_join(covid, death_table, by = c("fips" = "county_code"))
+```
+
+Join the excess death data to the ACS demographic data.
+
+### Join excess death/COVID data to ACS data
+```{r join data}
+
+# select only relevant variables and typecast geographic identifiers
+# join covid data to demographic data
+death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code, cens_pop_est, covid_death_rate_2020, excess_deaths_2020, excess_death_rate_2020)
+acs_derived$fips <- as.numeric(acs_derived$fips)
+acs_covid <- left_join(acs_derived, death_table, by = c("fips" = "county_code")) 
+
+# replace NA with 0 for missing data
+acs_covid[is.na(acs_covid$excess_deaths_2020), ]$excess_deaths_2020 <- 0
+acs_covid[is.na(acs_covid$cens_pop_est), ]$cens_pop_est <- 0
+```
+
+## Map Excess Death Incidence (previously COVID-19 incidence)
+
+Map the county level distribution of excess death incidence rates.
+
+```{r map-excess-death-rates, message = FALSE}
+tm_edeath_rates <- tm_shape(acs_covid) +
+  tm_polygons("excess_death_rate_2020",
+    title = "Excess Death Rates\n(March 2020 to 1 December 2020)",
+    style = "quantile",
+    border.alpha = .2,
+    lwd = 0.2,
+    palette = "Oranges",
+  ) +
+  tm_shape(state) +
+    tm_borders("grey", lwd = .5) +
+  tm_layout(
+    legend.position = c("left", "bottom"),
+    legend.title.size = 0.8,
+    legend.text.size = 0.5
+  )
+
+tm_edeath_rates
+```
+
+## Map COVID-19 incidence
+
+Map the county level distribution of COVID-19 incidence rates, comparing to Figure 1 of the original study.
+
+```{r map-covid-rates, message = FALSE}
+tm_covid_rates <- tm_shape(acs_covid) +
+  tm_polygons("covid_death_rate_2020",
+    title = "COVID-19 Death Rates\n(March 2020 to 1 December 2020)",
+    style = "quantile",
+    border.alpha = .2,
+    lwd = 0.2,
+    palette = "Oranges",
+  ) +
+  tm_shape(state) +
+    tm_borders("grey", lwd = .5) +
+  tm_layout(
+    legend.position = c("left", "bottom"),
+    legend.title.size = 0.8,
+    legend.text.size = 0.5
+  )
+
+tm_covid_rates
+```
+
+## Map disability rates
+
+**Unplanned deviation for reproduction**: We also map the spatial distribution of the percent of people with any disability to improve our understanding of the geographic patterns and relationships of between the overarching independent variable (percentage of people with disability) and the dependent variable (COVID-19 incidence rate).
+
+```{r map-disability-rates, message = FALSE}
+tm_disability_rates <- tm_shape(acs_covid) +
+  tm_polygons("dis_pct",
+    title = "Percent of People with Disability\n(ACS 2020)",
+    style = "quantile",
+    border.alpha = .2,
+    lwd = 0.2,
+    palette = "Oranges"
+  ) +
+  tm_shape(state) +
+  tm_borders("grey", lwd = .5) +
+  tm_layout(
+    legend.position = c("left", "bottom"),
+    legend.title.size = 0.8,
+    legend.text.size = 0.5
+  )
+
+tm_disability_rates
+```
+
+## Descriptive statistics
+
+Calculate descriptive statistics for dependent excess death rate and independent socio-demographic characteristics, reproducing the min, max, mean, and SD columns of original study table 1.
+
+**Planned deviation for reanalysis**: We also calculate the Shapiro Wilk test for normality.
+
+```{r descriptive-statistics}
+acs_covid_stats <- acs_covid %>%
+  st_drop_geometry() %>%
+  select(excess_death_rate_2020, contains("pct")) %>%
+  stat.desc(norm = TRUE) %>%
+  round(2) %>%
+  t() %>%
+  as.data.frame() %>%
+  select(min, max, mean, SD = std.dev, ShapiroWilk = normtest.W, p = normtest.p)
+
+acs_covid_stats %>%
+  kable(caption = "Reproduced Descriptive Statistics",
+        align = "c") %>%
+  column_spec(2:6, width_min = "5em") %>%
+  column_spec(7, width_min = "2em") %>%
+  kable_styling(full_width = FALSE)
+```
+
+# Analytical methods
+
+## Bivariate parametric correlation analysis
+
+The county-level Pearson's rho correlation coefficient was used to test association between intra-categorical rates of disability and excess death rates.
+As this was a parametric test, normality should be tested.
+A separate hypothesis was formulated for disability in aggregate and for each sociodemographic disability characteristic.
+
+Calculate Pearson's R Correlation Coefficient of each independent variable and the excess death rate, reproducing the Pearson's R column of original study Table 1.
+
+```{r pearsons-correlation}
+df <- sum(!is.na(acs_covid$dis_pct)) - 2
+
+pearsons_r <- acs_covid %>%
+  select(where(is.numeric)) %>%
+  st_drop_geometry() %>%
+  cor(method = "pearson", use = "complete.obs") %>%
+  as.data.frame() %>%
+  select(r = excess_death_rate_2020) %>%
+  mutate(
+    t = abs(r) / sqrt((1 - r^2) / (df)),
+    p = pt(t, df, lower.tail = FALSE)
+  ) %>%
+  round(3) %>%
+  rownames_to_column("variable") %>%
+  filter(variable != "excess_death_rate_2020")
+
+pearsons_r %>%
+  kable(caption = "Reproduced Pearson's R",
+        align = "c") %>%
+  column_spec(2:4, width = "4em") %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Bivariate nonparametric correlation analysis
+
+**Unplanned Deviation for Reproduction**: The dependent and independent variables in this study do not have normal distributions, as shown in the Shapiro-Wilk test results above.
+Therefore, we deviate from the original study to use the Spearman's Rho non-parametric correlation test.
+
+```{r spearmans correlation}
+df <- sum(!is.na(acs_covid$dis_pct)) - 2
+
+spearmans_rho <- acs_covid %>%
+  select(where(is.numeric)) %>%
+  st_drop_geometry() %>%
+  cor(method = "spearman", use = "complete.obs") %>%
+  as.data.frame() %>%
+  select(rho = excess_death_rate_2020) %>%
+  mutate(
+    t = abs(rho) / sqrt((1 - rho^2) / (df)),
+    p = pt(t, df, lower.tail = FALSE)
+  ) %>%
+  round(3) %>%
+  rownames_to_column("variable") %>%
+  filter(variable != "excess_death_rate_2020")
+```
+
+##REMOVE??
+Compare the Spearman's *rho* correlation coefficients to the reproduced Pearson's *r* correlation coefficients.
+Differences are calculated as *Spearman's Rho* - *Pearson's R*.
+
+```{r compare-spearmans-correlation}
+# calculate number of significance stars at p<0.01 and P<0.05 levels.
+spearmans_rho <- mutate(spearmans_rho, rp_rho_stars = as.numeric(as.character(cut(p,
+  breaks = c(-0.1, 0.01, 0.05, 1),
+  labels = c(2, 1, 0)
+))))
+
+correlations <- correlations[, 1:8] %>%
+  left_join(select(spearmans_rho, variable, rp_rho = rho, rp_rho_stars), by = "variable")
+
+corrdiff <- select(correlations, starts_with("rp_rho")) -
+  select(correlations, rp_r, rp_stars)
+
+correlations <- correlations %>% bind_cols(rename_with(corrdiff, ~ paste0(.x, "_diff")))
+rm(corrdiff)
+
+correlations <- correlations %>% mutate(rp_rho_dir_diff = (rp_rho > 0) - (rp_r > 0))
+
+correlations %>%
+  select(variable, rp_r, rp_stars, starts_with("rp_rho")) %>%
+  kable(col.names = c("Variable", "R", "Stars", "Rho", "Stars", "Rho - R", "Stars", "Direction"),
+        align = "c") %>%
+  #column_spec(2:6, width_min = "5em") %>%
+  kable_styling() %>%
+  add_header_above(c(" " = 1, "Pearson's" = 2, "Spearman's" = 2, "Difference" = 3))
+```
+
+Instabilities between the parametric and non-parametic correlations arise from variables with very skewed distributions and/or weak correlations at the county level.
+Some difference may also be attributable to the 13 counties with data errors in the COVID-19 Incidence Rate.
+In such distributions, outlier observations have more weight in the parametric Person's R test than in the non-parametric Spearman's Rho test.
+
+```{r plot-bivariate, fig.width=4, fig.height=4}
+plot(acs_covid$native_pct,
+  acs_covid$excess_death_rate_2020,
+  xlab = "Percent Native American",
+  ylab = "Excess Death Incidence",
+  pch = 16,
+  col = rgb(0, 0, 0, 0.05),
+  cex.lab = 0.8,
+  cex.axis = 0.5,
+)
+lines(abline(lm(acs_covid$excess_death_rate_2020 ~ acs_covid$native_pct)))
+
+rm(spearmans_rho, pearsons_r, correlations, table1, df)
+```
+
+#GEE models
+## Preprocess data for GEE modelling
+
+**Unplanned deviation for reanalysis**: Based on the three observations above, we think that it would be more valid to choose one set of secondary clusters based on a single method rather than combining a set of hierarchical clusters with a set of GINI optimized clusters.
+We also think that it would be more valid to include risk levels for all counties within a cluster (i.e. all counties within any of the circles above), rather than only the county at the center of a cluster.
+Finally, we think it would be more valid to treat clusters as a single category rather than five tiers of above-normal risk.
+
+To complete the reproduction/reanalysis study, we will therefore calculate and compare multiple versions of the GEE models:
+
+1.  Original study results
+2.  Original study data in geepack
+3.  SpatialEpi cluster classification in geepack
+4.  SpatialEpi binary clusters in geepack
+
+### Unique GEE cluster IDs
+
+First, calculate GEE cluster IDs.
+
+We have already calculated: - `rp_clusID` based on our SpatialEpi clusters - `ss_clusID` based on our SaTScan cluster centers, and shown to be identical to the original author's data - `gini_clusID` based on our SaTScan GINI-optimized clusters
+
+### Filter and standardize data
+
+Second, filter the data for non-zero COVID-19 rates and z-score standardize the independent variables.
+This accomplishes step 10 of the workflow diagram.
+
+**Unplanned deviation for reproduction:** We assumed that we should filter for COVID rates \> 0 first and then calculate z-scores, however after comparing data in the next code block, we realized that the original study had *first* calculated z-scores and *then* filtered for COVID rates \> 0.
+Therefore, to align with the original study, in the next code block we first calculate z-scores and then filter for COVID rates \> 0.
+
+**If skipping kulldorff, start running code here!**
+```{r preprocess data for GEE model }
+
+# Create unique State - combine by state FIP codres
+# Sort by the cluster id's (a requirement of the gee function)
+gee_data <- acs_covid %>%
+  filter(!is.na(excess_death_rate_2020)) %>%
+  mutate(id = interaction(statefp)) %>%
+  arrange(id)
+
+
+gee_data <- gee_data %>%
+  mutate(
+    z_bpov_pct = scale(bpov_pct),
+    z_apov_pct = scale(apov_pct),
+    z_white_pct = scale(white_pct),
+    z_black_pct = scale(black_pct),
+    z_native_pct = scale(native_pct),
+    z_asian_pct = scale(asian_pct),
+    z_other_pct = scale(other_pct),
+    z_non_hisp_white_pct = scale(non_hisp_white_pct),
+    z_hisp_pct = scale(hisp_pct),
+    z_non_hisp_non_white_pct = scale(non_hisp_non_white_pct),
+    z_pct_5_17 = scale(pct_5_17),
+    z_pct_18_34 = scale(pct_18_34),
+    z_pct_35_64 = scale(pct_35_64),
+    z_pct_65_74 = scale(pct_65_74),
+    z_pct_75 = scale(pct_75),
+    z_male_pct = scale(male_pct),
+    z_female_pct = scale(female_pct)
+  ) %>%  
+  filter(excess_death_rate_2020 > 0) # moved filtering from before z-score calculation
+```
+When we had filtered for COVID rates \> 0 first and then z-score standardized second, the means of differences ranged from -0.012 to 0.004, and standard deviations of differences ranged from 0.000 to 0.016.
+
+After changing the order to first z-score standardize and then filter for COVID rates \> 0, we observed no mean difference between our reproduced variables and the original variables, and we find no standard deviation \> 0.001 for the difference between reproduction independent variables and original variables.
+There are no major differences between the independent variables.
+
+#### Save final derived data
+
+Optionally, you may save the preprocessed data to `data/raw/public/gee_data.gpkg`
+
+```{r save preprocessed COVID cluster data, eval = FALSE}
+write_sf(gee_data, here("data", "derived", "public", "gee_data.gpkg"))
+# add saving acs_covid data
+```
+
+Optionally, you may load the preprocessed data from `data/raw/public/gee_data.gpkg`
+
+```{r load preprocessed COVID cluster data, eval = FALSE}
+gee_data <- read_sf(here("data", "derived", "public", "gee_data.gpkg"))
+```
+
+## GEE models
+
+The generalized estimating equation (GEE) models were used to test association between intra-categorical rates of disability and COVID-19 incidence rates while accounting for spatial clustering.
+A separate hypothesis was formulated for each type of subcategorization of PwDs, numbered H2.1 through H2.5 in Table 4.
+
+As specified by the author, "GEEs extend the generalized linear model to accommodate clustered data, in addition to relaxing several assumptions of traditional regression (i.e., normality)".
+Additionally, the author noted that "clusters of observations must be defined based on the assumption that observations within a cluster are correlated while observations from different clusters are independent." All five GEE models were specified with exchangeable correlation matrices, gamma distributions, and logarithmic link function.
+These specifications were chosen after testing each alternative and choosing the models with the best quasilikelihood under the independence model criterion (QIC).
+
+This accomplishes the step 11 of the workflow diagram.
+
+Generalized Estimating Equation parameters:
+
+"The **'exchangeable' correlation matrix** was selected for the results reported here, since this specification yielded the best statistical fit based on the QIC (quasi- likelihood under the independence) model criterion." (Chakraborty 2021, Methods paragraph 5)
+
+"The **gamma distribution** with **logarithmic link function** was chosen for all GEEs since this model specification provided the lowest QIC value." (Chakraborty 2021, Methods paragraph 5)
+
+### GEE Function
+
+Define a function for calculating and summarizing five GEE models
+
+```{r gee-functions}
+onegee <- function(gee_data, dep_var, id, term_names) {
+
+  # sort data frame by clustering variable, a requirement of GEE modeling
+  gee_data <- gee_data %>% arrange({{ id }})
+
+  # create list of models and their independent variables
+  model_names <- c(
+    "race",
+    "ethnicity",
+    "poverty status",
+    "age",
+    "biological sex"
+  )
+
+  ind_vars <- c(
+    "z_white_pct + z_black_pct + z_native_pct + z_asian_pct + z_other_pct",
+    "z_non_hisp_white_pct + z_hisp_pct + z_non_hisp_non_white_pct",
+    "z_bpov_pct + z_apov_pct",
+    "z_pct_5_17 + z_pct_18_34 + z_pct_35_64 + z_pct_65_74 + z_pct_75",
+    "z_male_pct + z_female_pct"
+  )
+
+  gee_models <- data.frame(model_names, ind_vars)
+  gee_model <- list()
+
+  # empty data frame for storing model outputs
+  coefficients <- data.frame()
+  qics <- data.frame(model_names, qic = c(1:5))
+
+  # run each model and save outputs
+  for(i in 1:nrow(gee_models)){
+
+    # run model
+    gee_model[[i]] <- geeglm(
+      formula = as.formula(paste(dep_var, "~", gee_models[i, "ind_vars"])),
+      data = gee_data,
+      id = {{ id }}, # cluster IDs
+      family = Gamma(link = "log"),
+      corstr = "exchangeable",
+    )
+
+    # tidy and save variable coefficients, margins of error, significance...
+    gee_table <- tidy(gee_model[[i]], conf.int = TRUE)
+    gee_table[1, 1] <- paste(gee_models[i, 1], "model intercept")
+    coefficients <- coefficients %>% rbind(gee_table)
+
+    # QIC: quasi-likelihood under the independence model information criterion
+    QIC(gee_model[[i]])
+    qics[i, 2] <- QIC(gee_model[[i]])[1]
+
+    gee_model[[i]]$model <- NA
+  }
+
+  # calculate significance levels
+  coefficients$stars <- as.numeric(
+    as.character(
+      cut(coefficients$p.value,
+        breaks = c(-0.1, 0.01, 0.05, 1),
+        labels = c(2, 1, 0)
+      )
+    )
+  )
+
+  # reorder columns to match table2 in publication and round to 3 sig. digits
+  coefficients <- coefficients %>%
+    select("estimate", "std.error", starts_with("conf"), "stars", "p.value") %>%
+    round(digits = 3)
+
+  # add tidy term names
+  coefficients <- bind_cols(term = term_names, coefficients)
+
+  # combine coefficient results and QIC results into a list
+  return_data <- list(
+    "coefficients" = coefficients,
+    "QICs" = qics,
+    "models" = gee_model
+    )
+
+  return(return_data)
+}
+```
+
+### SpatialEpi Clusters and Fixed COVID-19 Rate
+
+Calculate GEE models with: - Clustering: Reproduced SpatialEpi clusters & State ID - Dependent variable: excess death incidence.
+
+```{r gee-spatialepi-clusters-reproduced-incidence}
+#changed id = gee_data$rp_clusID to id = gee_data$id
+gee_rp_clus_rpdep <- onegee(gee_data,
+                    dep_var = "excess_death_rate_2020",
+                    id = gee_data$id,
+                    term_names = table2$term)
+gee_rp_clus_rpdep$coefficients %>%
+  kable(caption = "Reproduced SpatialEpi Cluster IDs and Excess Death Incidence",
+        align = "c") %>%
+  kable_styling()
+```
+
+### Interpret GEE Model
+
+```{r residuals}
+# create data frame with residuals
+gee_resid <- data.frame(
+  select(gee_rp_clus_rpdep$models[[1]]$data, excess_death_rate_2020, ss_clusID),
+  data.frame(fitvals = gee_rp_clus_rpdep$models[[1]]$fitted.values),
+  data.frame(residual = gee_rp_clus_rpdep$models[[1]]$residual),
+  data.frame(working = residuals(gee_rp_clus_rpdep$models[[1]], type = "working")),
+  data.frame(response = residuals(gee_rp_clus_rpdep$models[[1]], type = "response")),
+  data.frame(pearson = residuals(gee_rp_clus_rpdep$models[[1]], type = "pearson"))
+) %>%
+  mutate(
+    my_working = (excess_death_rate_2020 - fitvals) / fitvals,
+    my_pearson = response * (sqrt(gee_or_clus_rpdep$models[[1]]$prior.weights)) / sqrt(fitvals^2)
+  ) %>%
+  st_sf()
+
+# working residual is the model residual (r) from gee, BUT HOW IS THIS CALCULATED?
+# it is not simply the response residual normalized by the fitted value as the
+# datascienceblog suggests
+# response residual is: y(observed value) - fitted value
+# my working residual normalizes response residual by fitted value, and effectively
+# the code version of pearsons does the same because the prior weights are all 1
+# if the datascienceblog is correct, the code pearson's residual should be divided by the square root of the fitted value.
+# code: https://github.com/cran/geepack/blob/master/R/geeglm.R
+# blog: https://www.datascienceblog.net/post/machine-learning/interpreting_generalized_linear_models
+```
+
+```{r map-residuals}
+tm_gee_residuals <- tm_shape(gee_resid) +
+  tm_polygons("response",
+    title = "Race Model Residuals",
+    style = "equal",
+    n = 7,
+    border.alpha = .2,
+    lwd = 0.2,
+    palette = "RdBu",
+    legend.hist = FALSE,
+    midpoint = 0
+  ) +
+  tm_shape(state) +
+    tm_borders("grey", lwd = .5) +
+  tm_layout(
+    legend.position = c("left", "bottom"),
+    legend.title.size = 0.8,
+    legend.text.size = 0.5,
+    legend.width = 0.25,
+    legend.hist.size = 0.5,
+    legend.hist.height = 0.15
+  )
+
+tm_gee_residuals
+```
+
+Calculate variance, covariance, correlation, and weights
+
+```{r weights}
+# calculate k number of observations per cluster
+gee_resid <- gee_resid %>% 
+  group_by(ss_clusID) %>% 
+  mutate(k = n()) %>% 
+  ungroup()
+
+grps <- gee_resid %>% st_drop_geometry() %>% select(ss_clusID, residual = residual)
+
+# create mask matrix
+n <- length(gee_resid$ss_clusID)
+# m <- matrix(nrow = n, ncol = n)
+
+# this is very inefficient, but this makes matrix of equal clusID's:
+# just need to omit the bottom-left of matrix and the diagonal
+# selecting for rows 80-90 to help w debugging
+m <- (outer(grps$ss_clusID, grps$ss_clusID, "==") &
+  outer(rownames(grps), rownames(grps), "<"))
+
+# calculate denominators
+covar_d <- sum(m, na.rm = TRUE) - 1
+
+# variance
+v <- sum(grps$residual^2) / (n - 1)
+# covariance
+c <- sum(outer(grps$residual, grps$residual, "*") * m, na.rm = TRUE) / covar_d
+# correlation
+r <- c / v
+
+# calculate weights
+gee_resid <- gee_resid %>% 
+  mutate(w = 1 / (1 + (k - 1) * r))
+```
+
+Map each county's weight in GEE model.
+
+```{r map-weights}
+tm_gee_weights <- tm_shape(gee_resid) +
+  tm_polygons("w",
+    title = "Race Model Weights",
+    style = "jenks",
+    border.alpha = .2,
+    lwd = 0.2,
+    palette = "Oranges",
+    legend.hist = FALSE #removed midpoint = 0 to reset the color ramp
+  ) +
+  tm_shape(state) +
+    tm_borders("grey", lwd = .5) +
+  tm_layout(
+    legend.position = c("left", "bottom"),
+    legend.title.size = 0.8,
+    legend.text.size = 0.5,
+    legend.width = 0.25,
+    legend.hist.size = 0.5,
+    legend.hist.height = 0.15
+  )
+
+tm_gee_weights
+
+# re
+```
+
+```{r save-figures, eval = F}
+# save figures as image files
+# obviously this could be made into a for loop
+# add height, width, and dpi parameters to tmap_save to meet criteria for particular publications.
+tmap_options(unit = "in")
+tmap_save(tm_author_clusters, here("results", "figures", "tm_author_clusters.png"))
+tmap_save(tm_covid_rates, here("results", "figures", "tm_covid_rates.png"))
+tmap_save(tm_disability_rates, here("results", "figures", "tm_disability_rates.png"))
+tmap_save(tm_spatialepi_clusters, here("results", "figures", "tm_spatialepi_clusters.png"))
+tmap_save(tm_spatialepi_gini, here("results", "figures", "tm_spatialepi_gini.png"))
+tmap_save(tm_spatialepi_hier, here("results", "figures", "tm_spatialepi_hier.png"))
+tmap_save(tm_spatialepi_cluster_risk_class, here("results", "figures", "tm_spatialepi_cluster_risk_class.png"))
+tmap_save(tm_spatialepi_local_risk_class, here("results", "figures", "tm_spatialepi_local_risk_class.png"))
+ggsave(here("results", "figures", "plot_coefficients.png"), geewhisker_fig)
+```
+
+# Discussion
+
+Looking at our maps of excess deaths and disability for 2020, there does not appear to be much of a correlation between the two at a glance. There are high rates of disability in regions such as New England, and especially upper Maine, as well as in swaths of the South and in the Pacific Northwest (PNW). However, there are not high excess death incidences in New England, in the PNW, nor in any big metropolitan areas, such as along the East Coast. However, there were high concentrations of excess deaths in parts of Texas and in other parts of the south.
+
+Interestingly, in Nevada, there seemed to be notably more instances of excess deaths than in its immediate neighbors, and in some counties in southern Nevada, there were also high rates of disability. However, visually there does not appear to be a perfect correlation. 
+
+One potential issues with this reproduction is spatial heterogeneity; there are distinct areas where the pandemic spread early on as opposed to later, once it had spread widely throughout the entire country. By nature, our reproduction will mitigate this issue because we will be reproducing the study at a later date (2020 instead of 2018), after the pandemic had spread widely throughout the United States.
+
+Another potential threat to validity would include scale dependency, which refers to the idea of a phenomena in one place being influenced by neighboring locations. Chakraborty was interested in the relationship between disabilities and the spread of COVID-19, however, it is likely that the spread of COVID-19 was not entirely dependent on disability, but rather in part physical proximity of places. This is to say that nearby places likely transmitted COVID-19 between them than places further apart.

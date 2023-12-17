@@ -58,8 +58,6 @@ Stated as null reproduction study hypotheses (RPr-H):
 There are multiple models being tested within each of the two hypotheses.
 That is, H1 and H2 both encompass five models, including one for each dimension of socio-demographics: race, ethnicity, poverty status, age, and biological sex.
 
-# Original study design
-
 The original study is **observational**, with the **exploratory** objective of determining "whether COVID-19 incidence is significantly greater in counties containing higher percentages of socio-demographically disadvantaged [people with disabilities], based on their race, ethnicity, poverty status, age, and biological sex" (Chakraborty 2021).
 
 In the original study, 18 implicit bivariate hypotheses are tested for correlation between COVID-19 cumulative incidence rates and specific categories of PwDs at the county level.
@@ -75,6 +73,8 @@ Although the original publication does not state null hypotheses for each model,
 > OR-H2.1: The percentages of people with disability, categorized by race, are not associated with COVID-19 incidence at the county level when accounting for the state and risk level of COVID-19 clusters.
 > ... OR-H2.5: The percentages of people with disability, categorized by gender, are not associated with COVID-19 incidence at the county level when accounting for the state and risk level of COVID-19 clusters.
 
+# Original Study Design
+
 The **spatial extent** of the study is the continental United States (48 contiguous states and Washington D.C.) The **spatial scale** of the analysis is at the county level.
 Both COVID-19 incidence rates and demographic variables are all measured at the county level.
 The **temporal extent** of the COVID-19 data ranges from 1/22/2020 (when John Hopkins began collecting the data) to 8/1/2020 (when the data was retrieved for the original study).
@@ -84,6 +84,8 @@ Census American Community Survey (ACS) five-year estimates for 2018 (2014-2018).
 There is no **randomization** in the original study.
 
 ![](../../docs/report/workflow.jpg "Workflow diagram")
+
+In this reproduction, we reproduce parts of Chakraborty's study using excess death data from 2020 instead of COVID-19 cases.
 
 # Computational environment
 
@@ -309,7 +311,9 @@ saveRDS(death, file = here("data", "raw", "private", "excess_death.RDS"))
 
 ```
 
-# load Covid Data (need the XY coords for kulldorff)
+We load the COVID data, which has XY coordinates necessary for creating Kulldorff models later on. We attach it to the *death_table*.
+
+# Load Covid Data (need the XY coords for kulldorff)
 ```{r load-covid-data}
 covid <- read_sf(here("data", "raw", "public", "covidcase080120.gpkg"))
 
@@ -331,6 +335,8 @@ covid$fips <- as.numeric(acs_derived$fips)
 death_table <- left_join(covid, death_table, by = c("fips" = "county_code"))
 ```
 
+Join the excess death data to the ACS demographic data.
+
 ### Join excess death/COVID data to ACS data
 ```{r join data}
 
@@ -345,31 +351,9 @@ acs_covid[is.na(acs_covid$excess_deaths_2020), ]$excess_deaths_2020 <- 0
 acs_covid[is.na(acs_covid$cens_pop_est), ]$cens_pop_est <- 0
 ```
 
-## Missing data (DOESN'T WORK)
-
-**Unplanned deviation for reproduction**: There is one county with missing disability and poverty data.
-This was not mentioned in the original study or in our pre-analyis plan.
-However, we replace the missing data with zeros, which is necessary to run later statistical tests and the Kulldorff model.
-
-```{r missing data table FIX}
-#FIX - Missing Data Clean Table
-#changed the Kable parameters in the original code block to improve the formatting of the table
-# county with missing data
- 
-# I can't get this to worK :()
-filter(acs_covid, is.na(bpov_pct)) %>% st_drop_geometry() %>% 
-  t() %>%
-  kable(col.names = c("Value"), align = "c", caption = "Missing County Data") %>%
-  kable_styling(full_width = FALSE)
-
-# replace NA with 0 for missing data
-#acs_covid[is.na(acs_covid$excess_deaths_2020), ]$excess_deaths_2020 <- 0
-#acs_covid[is.na(acs_covid$cens_pop_est), ]$cens_pop_est <- 0
-```
-
 ## Map Excess Death Incidence (previously COVID-19 incidence)
 
-Map the county level distribution of excess death incidence rates, comparing to Figure 1 of the original study.
+Map the county level distribution of excess death incidence rates.
 
 ```{r map-excess-death-rates, message = FALSE}
 tm_edeath_rates <- tm_shape(acs_covid) +
@@ -391,8 +375,7 @@ tm_edeath_rates <- tm_shape(acs_covid) +
 tm_edeath_rates
 ```
 
-## Map COVID-19 incidence
-## Compare COVID-19 incidene with excess deaths?
+## Map COVID-19 incidencef
 
 Map the county level distribution of COVID-19 incidence rates, comparing to Figure 1 of the original study.
 
@@ -423,7 +406,7 @@ tm_covid_rates
 ```{r map-disability-rates, message = FALSE}
 tm_disability_rates <- tm_shape(acs_covid) +
   tm_polygons("dis_pct",
-    title = "Percent of People with Disability\n(ACS 2014-2018)",
+    title = "Percent of People with Disability\n(ACS 2020)",
     style = "quantile",
     border.alpha = .2,
     lwd = 0.2,
@@ -615,7 +598,7 @@ Optionally, skip this code block due to long run times of more than 10 minutes.
 
 ```{r SpatialEpi-Kulldorff, eval = FALSE, fig.width=4, fig.height=4}
 start_time <- Sys.time()
-covid_geo <- death_table %>%
+death_table %>%
   select(x, y) %>%
   latlong2grid()
 # latlong2grid creates approximate equidistant cylindrical grid
@@ -628,7 +611,7 @@ covid_geo <- death_table %>%
 expected.cases <- expected(acs_covid$cens_pop_est, acs_covid$excess_deaths_2020, 1)
 
 # Kulldorff spatial scan statistic
-covid_kulldorff <- kulldorff(
+edeath_kulldorff <- kulldorff(
   geo = death_table,
   cases = acs_covid$excess_deaths_2020,
   population = acs_covid$cens_pop_est,
@@ -646,7 +629,7 @@ print(
   ),
   quote = FALSE
 )
-rm(covid_geo, expected.cases, start_time)
+rm(expected.cases, start_time)
 
 # save results in a file appended with the current date
 saveRDS(edeath_kulldorff,
@@ -982,6 +965,7 @@ This accomplishes step 10 of the workflow diagram.
 **Unplanned deviation for reproduction:** We assumed that we should filter for COVID rates \> 0 first and then calculate z-scores, however after comparing data in the next code block, we realized that the original study had *first* calculated z-scores and *then* filtered for COVID rates \> 0.
 Therefore, to align with the original study, in the next code block we first calculate z-scores and then filter for COVID rates \> 0.
 
+**If skipping kulldorff, start running code here!**
 ```{r preprocess data for GEE model }
 
 # Create unique State - combine by state FIP codres
@@ -1149,7 +1133,7 @@ gee_rp_clus_rpdep <- onegee(gee_data,
                     id = gee_data$id,
                     term_names = table2$term)
 gee_rp_clus_rpdep$coefficients %>%
-  kable(caption = "Reproduced SpatialEpi Cluster IDs and Reproduced COVID-19 Incidence",
+  kable(caption = "Reproduced SpatialEpi Cluster IDs and Excess Death Incidence",
         align = "c") %>%
   kable_styling()
 ```
@@ -1198,40 +1182,21 @@ geewhisker_fig
 rm(t2whisker)
 ```
 
-The figure above illustrates five model variations, starting with the results published in the original study.
-The next two models make incremental adjustments to the research design and are most compatible with the goals of a reproduction study.
-
-The greatest differences were produced using the same input data in different computational environments, caused by switching the computational environment from SPSS to geepack in R.
-This switch decreased the magnitude of most coefficients, reducing the positive Hispanic coefficient below its original confidence interval and increasing the negative Above poverty level and Male coefficients to the limits of their original confidence intervals.
-
-Compared to the change in computational environment, fixing the error in the COVID-19 incidence rate of 13 counties had very little effect on coefficient estimates.
-
-Our more significant adjustments could be considered reanalyses, in which we re-conceptualized COVID-19 clusters first as all counties included in SaTScan GINI-Optimized clusters, and second as all counties included in SpatialEpi clusters.
-These two changes further decreased the magnitude of most coefficients as they likely more effectively fulfilled the purpose of controlling for spatial dependence.
-The shifts were most signficant for the Ethnicity model, in which the Hispanic and Non-Hispanic white coefficients lost magnitude beyond the original confidence interval and the Hispanic coefficient is no longer significant.
-Secondarily, the negative Above poverty level and Male coefficients both increased beyond the range of the original confidence intervals.
-
-Overall, we can see that some coefficients remained significant and robust to changes in computational environment, data errors, and clustering criteria.
-Robustly positive coefficients included Black, Native American, Non-Hispanic non-White, Below poverty level, and Female.
-The Asian and Age 5-17 coefficients also remained just above 0.
-All of these categories of people with disabilities would be considered intersectional with factors of vulnerability.
-Conversely, some robustly negative coefficients indicate people with disabilities intersecting with non-vulnerable identities, such as white, Non-Hispanic White, Above poverty level, and Male.
-Counter-intuitively, the two coefficients for elderly people with disability were also robustly negative.
 
 ### Interpret GEE Model
 
 ```{r residuals}
 # create data frame with residuals
 gee_resid <- data.frame(
-  select(gee_or_clus_rpdep$models[[1]]$data, covid_rate, ss_clusID),
-  data.frame(fitvals = gee_or_clus_rpdep$models[[1]]$fitted.values),
-  data.frame(residual = gee_or_clus_rpdep$models[[1]]$residual),
-  data.frame(working = residuals(gee_or_clus_rpdep$models[[1]], type = "working")),
-  data.frame(response = residuals(gee_or_clus_rpdep$models[[1]], type = "response")),
-  data.frame(pearson = residuals(gee_or_clus_rpdep$models[[1]], type = "pearson"))
+  select(gee_rp_clus_rpdep$models[[1]]$data, excess_death_rate_2020, ss_clusID),
+  data.frame(fitvals = gee_rp_clus_rpdep$models[[1]]$fitted.values),
+  data.frame(residual = gee_rp_clus_rpdep$models[[1]]$residual),
+  data.frame(working = residuals(gee_rp_clus_rpdep$models[[1]], type = "working")),
+  data.frame(response = residuals(gee_rp_clus_rpdep$models[[1]], type = "response")),
+  data.frame(pearson = residuals(gee_rp_clus_rpdep$models[[1]], type = "pearson"))
 ) %>%
   mutate(
-    my_working = (covid_rate - fitvals) / fitvals,
+    my_working = (excess_death_rate_2020 - fitvals) / fitvals,
     my_pearson = response * (sqrt(gee_or_clus_rpdep$models[[1]]$prior.weights)) / sqrt(fitvals^2)
   ) %>%
   st_sf()
@@ -1355,8 +1320,10 @@ ggsave(here("results", "figures", "plot_coefficients.png"), geewhisker_fig)
 
 # Discussion
 
+Looking at our maps of excess deaths and disability for 2020, there does not appear to be much of a correlation between the two at a glance. There are high rates of disability in regions such as New England, and especially upper Maine, as well as in swaths of the South and in the Pacific Northwest (PNW). However, there are not high excess death incidences in New England, in the PNW, nor in any big metropolitan areas, such as along the East Coast. However, there were high concentrations of excess deaths in parts of Texas and in other parts of the south.
+
+Interestingly, in Nevada, there seemed to be notably more instances of excess deaths than in its immediate neighbors, and in some counties in southern Nevada, there were also high rates of disability. However, visually there does not appear to be a perfect correlation. 
+
 One potential issues with this reproduction is spatial heterogeneity; there are distinct areas where the pandemic spread early on as opposed to later, once it had spread widely throughout the entire country. By nature, our reproduction will mitigate this issue because we will be reproducing the study at a later date (2020 instead of 2018), after the pandemic had spread widely throughout the United States.
 
 Another potential threat to validity would include scale dependency, which refers to the idea of a phenomena in one place being influenced by neighboring locations. Chakraborty was interested in the relationship between disabilities and the spread of COVID-19, however, it is likely that the spread of COVID-19 was not entirely dependent on disability, but rather in part physical proximity of places. This is to say that nearby places likely transmitted COVID-19 between them than places further apart.
-
-Another potential source of error includes the fact that Chakraborty
