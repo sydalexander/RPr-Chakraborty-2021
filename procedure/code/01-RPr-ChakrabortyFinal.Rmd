@@ -332,7 +332,7 @@ st_drop_geometry()
 ```{r new table covid}
 death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code, cens_pop_est, covid_death_rate_2020, excess_deaths_2020, excess_death_rate_2020)
 covid$fips <- as.numeric(acs_derived$fips)
-death_table <- left_join(covid, death_table, by = c("fips" = "county_code"))
+covidGeo <- left_join(covid, death_table, by = c("fips" = "county_code"))
 ```
 
 Join the excess death data to the ACS demographic data.
@@ -375,7 +375,7 @@ tm_edeath_rates <- tm_shape(acs_covid) +
 tm_edeath_rates
 ```
 
-## Map COVID-19 incidencef
+## Map COVID-19 incidence
 
 Map the county level distribution of COVID-19 incidence rates, comparing to Figure 1 of the original study.
 
@@ -504,37 +504,6 @@ spearmans_rho <- acs_covid %>%
   filter(variable != "excess_death_rate_2020")
 ```
 
-##REMOVE??
-Compare the Spearman's *rho* correlation coefficients to the reproduced Pearson's *r* correlation coefficients.
-Differences are calculated as *Spearman's Rho* - *Pearson's R*.
-
-```{r compare-spearmans-correlation}
-# calculate number of significance stars at p<0.01 and P<0.05 levels.
-spearmans_rho <- mutate(spearmans_rho, rp_rho_stars = as.numeric(as.character(cut(p,
-  breaks = c(-0.1, 0.01, 0.05, 1),
-  labels = c(2, 1, 0)
-))))
-
-correlations <- correlations[, 1:8] %>%
-  left_join(select(spearmans_rho, variable, rp_rho = rho, rp_rho_stars), by = "variable")
-
-corrdiff <- select(correlations, starts_with("rp_rho")) -
-  select(correlations, rp_r, rp_stars)
-
-correlations <- correlations %>% bind_cols(rename_with(corrdiff, ~ paste0(.x, "_diff")))
-rm(corrdiff)
-
-correlations <- correlations %>% mutate(rp_rho_dir_diff = (rp_rho > 0) - (rp_r > 0))
-
-correlations %>%
-  select(variable, rp_r, rp_stars, starts_with("rp_rho")) %>%
-  kable(col.names = c("Variable", "R", "Stars", "Rho", "Stars", "Rho - R", "Stars", "Direction"),
-        align = "c") %>%
-  #column_spec(2:6, width_min = "5em") %>%
-  kable_styling() %>%
-  add_header_above(c(" " = 1, "Pearson's" = 2, "Spearman's" = 2, "Difference" = 3))
-```
-
 Instabilities between the parametric and non-parametic correlations arise from variables with very skewed distributions and/or weak correlations at the county level.
 Some difference may also be attributable to the 13 counties with data errors in the COVID-19 Incidence Rate.
 In such distributions, outlier observations have more weight in the parametric Person's R test than in the non-parametric Spearman's Rho test.
@@ -598,7 +567,7 @@ Optionally, skip this code block due to long run times of more than 10 minutes.
 
 ```{r SpatialEpi-Kulldorff, eval = FALSE, fig.width=4, fig.height=4}
 start_time <- Sys.time()
-death_table %>%
+covidGeo %>%
   select(x, y) %>%
   latlong2grid()
 # latlong2grid creates approximate equidistant cylindrical grid
@@ -606,6 +575,9 @@ death_table %>%
 
 #covid_geo <- as.numeric(unlist(covid_geo))
 #class(covid_geo)
+
+#remove negative excess death estimates
+#abs(death_table$excess_death_rate_2020)
 
 # calculate expected cases with one strata
 expected.cases <- expected(acs_covid$cens_pop_est, acs_covid$excess_deaths_2020, 1)
@@ -965,7 +937,7 @@ This accomplishes step 10 of the workflow diagram.
 **Unplanned deviation for reproduction:** We assumed that we should filter for COVID rates \> 0 first and then calculate z-scores, however after comparing data in the next code block, we realized that the original study had *first* calculated z-scores and *then* filtered for COVID rates \> 0.
 Therefore, to align with the original study, in the next code block we first calculate z-scores and then filter for COVID rates \> 0.
 
-**If skipping kulldorff, start running code here!**
+**If skipping kulldorff, start running code here**
 ```{r preprocess data for GEE model }
 
 # Create unique State - combine by state FIP codres
@@ -1136,186 +1108,6 @@ gee_rp_clus_rpdep$coefficients %>%
   kable(caption = "Reproduced SpatialEpi Cluster IDs and Excess Death Incidence",
         align = "c") %>%
   kable_styling()
-```
-
-### Compare GEE results
-
-**Unplanned deviation for reanalysis**: Generate dot-and-whisker plot of coefficients for each of the model variations for efficient visual comparison of coefficients across each model.
-
-```{r dotwhisker-comparison, message=FALSE}
-# create summary data frame compatible with dotwhisker package functions
-# starting with original study results
-t2whisker <- table2 %>%
-  mutate(model = "Original Study") %>%
-  select(-c(starts_with("row"), "wald_chi_square", "p_stars"))
-
-geewhisker <- bind_rows(
-  mutate(gee_or_clus_ordep$coefficients,
-         model = "Switch to R Geepack"),
-  mutate(gee_or_clus_rpdep$coefficients,
-         model = "Correct COVID Incidence"),
-  mutate(gee_gini_clus_rpdep$coefficients,
-         model = "SaTScan GINI-Optimized Clusters"),
-  mutate(gee_rp_clus_rpdep$coefficients,
-         model = "SpatialEpi Clusters")) %>%
-  select(1:5, "model")
-
-geewhisker <- bind_rows(t2whisker, geewhisker) %>%
-  filter(!grepl("intercept", term))
-
-# generate create dot whisker plot
-geewhisker_fig <- geewhisker %>%
-  dwplot(dodge_size = 0.6,
-         vline = geom_vline(
-           xintercept = 0,
-           colour = "grey60",
-           linetype = 2
-       )) +
-    scale_colour_brewer(type = "div",
-                        palette = "RdYlBu",
-                        name = "Model Variations") +
-    theme_bw() +
-    xlab("Coefficient")
-
-geewhisker_fig
-
-rm(t2whisker)
-```
-
-
-### Interpret GEE Model
-
-```{r residuals}
-# create data frame with residuals
-gee_resid <- data.frame(
-  select(gee_rp_clus_rpdep$models[[1]]$data, excess_death_rate_2020, ss_clusID),
-  data.frame(fitvals = gee_rp_clus_rpdep$models[[1]]$fitted.values),
-  data.frame(residual = gee_rp_clus_rpdep$models[[1]]$residual),
-  data.frame(working = residuals(gee_rp_clus_rpdep$models[[1]], type = "working")),
-  data.frame(response = residuals(gee_rp_clus_rpdep$models[[1]], type = "response")),
-  data.frame(pearson = residuals(gee_rp_clus_rpdep$models[[1]], type = "pearson"))
-) %>%
-  mutate(
-    my_working = (excess_death_rate_2020 - fitvals) / fitvals,
-    my_pearson = response * (sqrt(gee_or_clus_rpdep$models[[1]]$prior.weights)) / sqrt(fitvals^2)
-  ) %>%
-  st_sf()
-
-# working residual is the model residual (r) from gee, BUT HOW IS THIS CALCULATED?
-# it is not simply the response residual normalized by the fitted value as the
-# datascienceblog suggests
-# response residual is: y(observed value) - fitted value
-# my working residual normalizes response residual by fitted value, and effectively
-# the code version of pearsons does the same because the prior weights are all 1
-# if the datascienceblog is correct, the code pearson's residual should be divided by the square root of the fitted value.
-# code: https://github.com/cran/geepack/blob/master/R/geeglm.R
-# blog: https://www.datascienceblog.net/post/machine-learning/interpreting_generalized_linear_models
-```
-
-```{r map-residuals}
-tm_gee_residuals <- tm_shape(gee_resid) +
-  tm_polygons("response",
-    title = "Race Model Residuals",
-    style = "equal",
-    n = 7,
-    border.alpha = .2,
-    lwd = 0.2,
-    palette = "RdBu",
-    legend.hist = FALSE,
-    midpoint = 0
-  ) +
-  tm_shape(state) +
-    tm_borders("grey", lwd = .5) +
-  tm_layout(
-    legend.position = c("left", "bottom"),
-    legend.title.size = 0.8,
-    legend.text.size = 0.5,
-    legend.width = 0.25,
-    legend.hist.size = 0.5,
-    legend.hist.height = 0.15
-  )
-
-tm_gee_residuals
-```
-
-Calculate variance, covariance, correlation, and weights
-
-```{r weights}
-# calculate k number of observations per cluster
-gee_resid <- gee_resid %>% 
-  group_by(ss_clusID) %>% 
-  mutate(k = n()) %>% 
-  ungroup()
-
-grps <- gee_resid %>% st_drop_geometry() %>% select(ss_clusID, residual = residual)
-
-# create mask matrix
-n <- length(gee_resid$ss_clusID)
-# m <- matrix(nrow = n, ncol = n)
-
-# this is very inefficient, but this makes matrix of equal clusID's:
-# just need to omit the bottom-left of matrix and the diagonal
-# selecting for rows 80-90 to help w debugging
-m <- (outer(grps$ss_clusID, grps$ss_clusID, "==") &
-  outer(rownames(grps), rownames(grps), "<"))
-
-# calculate denominators
-covar_d <- sum(m, na.rm = TRUE) - 1
-
-# variance
-v <- sum(grps$residual^2) / (n - 1)
-# covariance
-c <- sum(outer(grps$residual, grps$residual, "*") * m, na.rm = TRUE) / covar_d
-# correlation
-r <- c / v
-
-# calculate weights
-gee_resid <- gee_resid %>% 
-  mutate(w = 1 / (1 + (k - 1) * r))
-```
-
-Map each county's weight in GEE model.
-
-```{r map-weights}
-tm_gee_weights <- tm_shape(gee_resid) +
-  tm_polygons("w",
-    title = "Race Model Weights",
-    style = "jenks",
-    border.alpha = .2,
-    lwd = 0.2,
-    palette = "Oranges",
-    legend.hist = FALSE #removed midpoint = 0 to reset the color ramp
-  ) +
-  tm_shape(state) +
-    tm_borders("grey", lwd = .5) +
-  tm_layout(
-    legend.position = c("left", "bottom"),
-    legend.title.size = 0.8,
-    legend.text.size = 0.5,
-    legend.width = 0.25,
-    legend.hist.size = 0.5,
-    legend.hist.height = 0.15
-  )
-
-tm_gee_weights
-
-# re
-```
-
-```{r save-figures, eval = F}
-# save figures as image files
-# obviously this could be made into a for loop
-# add height, width, and dpi parameters to tmap_save to meet criteria for particular publications.
-tmap_options(unit = "in")
-tmap_save(tm_author_clusters, here("results", "figures", "tm_author_clusters.png"))
-tmap_save(tm_covid_rates, here("results", "figures", "tm_covid_rates.png"))
-tmap_save(tm_disability_rates, here("results", "figures", "tm_disability_rates.png"))
-tmap_save(tm_spatialepi_clusters, here("results", "figures", "tm_spatialepi_clusters.png"))
-tmap_save(tm_spatialepi_gini, here("results", "figures", "tm_spatialepi_gini.png"))
-tmap_save(tm_spatialepi_hier, here("results", "figures", "tm_spatialepi_hier.png"))
-tmap_save(tm_spatialepi_cluster_risk_class, here("results", "figures", "tm_spatialepi_cluster_risk_class.png"))
-tmap_save(tm_spatialepi_local_risk_class, here("results", "figures", "tm_spatialepi_local_risk_class.png"))
-ggsave(here("results", "figures", "plot_coefficients.png"), geewhisker_fig)
 ```
 
 # Discussion
