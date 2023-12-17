@@ -40,7 +40,7 @@ COVID-19; Disability; Intersectionality; Race/ethnicity; Poverty; Reproducibilit
 
 ## Study design
 
-The reproduction study will implement Joseph Holler's reproduction study with new data from __. We will use excess death data (from 2020) in order to reproduce the map of county level distribution of excess deaths/COVID-19 deaths in 2020, as opposed to 2018, the time period of the original study. We will also reproduce the summary statistics and bivariate correlation for disability characteristics and COVID-19/excess death incidence, as well as the kulldorf spatial scan. 
+We will do a replication of Chrakborty's study using new excess death data. We will use excess death data (from 2020) in order to reproduce the map of county level distribution of excess deaths/COVID-19 deaths in 2020, as opposed to 2018, the time period of the original study. We will also reproduce the summary statistics and bivariate correlation for disability characteristics and COVID-19/excess death incidence, as well as the kulldorff spatial scan statistic and gee model with clusters by State ID level.
 
 ### Original study design
 
