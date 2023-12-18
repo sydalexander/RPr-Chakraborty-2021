@@ -4,3 +4,4 @@ code,Scratch-Code.Rmd,Miscellaneous R code that is not used in the final reprodu
 code,01-RPr-ChakrabortyFinal,Rmarkdown for Sydney's final project (with excess death)
 code,01-RPI-Chakraborty_EM,"Rmarkdown for Emily's code, reference for Sydney"
 code,01-RPr-ChakrabortyFin,Rmarkdown for final project (working code with excess death)
+environment,r-environment-2023-12-18,set up computational environment

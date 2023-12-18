@@ -17,3 +17,7 @@ derived\public\satscan,Coordinates.geo,space-delimited text,SaTScan Input: COVID
 derived\public\satscan,Population.geo,space-delimited text,SaTScan Input: COVID-19 Incidence : county populations,sat_scan_rpr.txt,provided
 derived\public,covid_kulldorff.RDS,r data file ,data generated in R markdown from Aug1data.shp,This is an R datafile generated using the SpatialEpi package that contains list of clusters,derived 
 derived\public,gee_data.gpkg,Geopackage,data generated in R markdown from Aug1data.shp and acs.gpkg,metadata_gee.xml,derived 
+raw\private,excess_death.RDS,r data file ,data retrieved from The Uncounted Lab GitHub repo ,metadata_excess.md,provided
+raw\public,state.RDS,r data file ,data generated in R markdown from ACS state geographic data,,derived 
+raw\public,acs.RDS,r data file ,data generated in R markdown from ACS state geographic data,,derived
+raw\public,acs2020.gpkg,Geopackage,TidyCensus Package call to ACS 2020 5-year,metadata_acs.xml,provided; derived

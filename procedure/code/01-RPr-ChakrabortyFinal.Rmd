@@ -301,6 +301,9 @@ However, archived data only provides summaries at the national scale.
 We received the COVID-19 case data through 8/1/2020 at the county level from the author, as there is no readily apparent way to access archived data from the Johns Hopkins University Center for Systems Science Engineering database.
 
 ##Load Excess Mortality Data 2020
+
+Load excess mortality data for 2020 from *The Uncounted Lab's" GitHub repository.
+
 ```{r load and save edeath data}
 
 githubURL <- ("https://github.com/Vital-Stats-Integrity-Proj/county-level-estimates-of-excess-mortality/raw/master/final_data/fitted_and_actual_deaths_county_sets_2020_W2020_wash_6_3_countyrow.rds")
@@ -311,9 +314,10 @@ saveRDS(death, file = here("data", "raw", "private", "excess_death.RDS"))
 
 ```
 
+# Load Covid Data (need the XY coords for kulldorff)
+
 We load the COVID data, which has XY coordinates necessary for creating Kulldorff models later on. We attach it to the *death_table*.
 
-# Load Covid Data (need the XY coords for kulldorff)
 ```{r load-covid-data}
 covid <- read_sf(here("data", "raw", "public", "covidcase080120.gpkg"))
 
@@ -328,6 +332,8 @@ st_drop_geometry()
 ```
 
 #Add XY Data (for running kulldorff)
+
+Add the XY data from the covid data to excess death data in order to run Kulldorff spatial scan later.
 
 ```{r new table covid}
 death_table <- select(death, cs_code.x, county_name, state_fips, county_fips, county_code, cens_pop_est, covid_death_rate_2020, excess_deaths_2020, excess_death_rate_2020)
@@ -455,7 +461,7 @@ The county-level Pearson's rho correlation coefficient was used to test associat
 As this was a parametric test, normality should be tested.
 A separate hypothesis was formulated for disability in aggregate and for each sociodemographic disability characteristic.
 
-Calculate Pearson's R Correlation Coefficient of each independent variable and the excess death rate, reproducing the Pearson's R column of original study Table 1.
+Calculate Pearson's R Correlation Coefficient of each independent variable and the excess death rate.
 
 ```{r pearsons-correlation}
 df <- sum(!is.na(acs_covid$dis_pct)) - 2
@@ -614,7 +620,7 @@ We were unable to get the Kulldorff Spatial Scan statistic to work due to an err
 Load pre-calculated Kulldorff spatial scan results.
 Alternatively, skip or modify this code block to use your own version of the SpatialEpi Kulldorff results.
 
-```{r load-Kulldorff}
+```{r load-Kulldorff, eval = FALSE}
 # load pre-calculated Kulldorff results
 # alternatively, modify the file name with an appended date to load a more current set of results
 covid_kulldorff <- readRDS(
@@ -624,7 +630,7 @@ covid_kulldorff <- readRDS(
 
 Report Kulldorff spatial scan results.
 
-```{r report-Kulldorff}
+```{r report-Kulldorff, eval = FALSE}
 print("Most likely cluster:", quote = FALSE)
 edeath_kulldorff$most.likely.cluster
 print(
@@ -642,7 +648,7 @@ This can be done by assigning unique cluster ID's to each county within a cluste
 Clusters include the county at the center of a cluster and all of the other counties within the cluster radius.
 Therefore, we use the FIPS code of the county at the center of each cluster as the unique cluster ID.
 
-```{r assign-cluster-IDs, message = FALSE}
+```{r assign-cluster-IDs, message = FALSE, eval = FALSE}
 # list of primary cluster locations (counties)
 cluster_locations <- edeath_kulldorf$most.likely.cluster$location.IDs.included
 
@@ -677,7 +683,7 @@ Although this was planned in workflow step 9, the order of operations between st
 Next, calculate a new field `isCluster` to identify counties in COVID-19 clusters.
 Additionally, distinguish between counties defining the center of a cluster from counties constituting other parts of a cluster by comparing the cluster ID (equivalent to the center county's fips code) to the county fips code.
 
-```{r join-clusterID-to-acs_covid}
+```{r join-clusterID-to-acs_covid, eval = FALSE}
 acs_covid <- acs_covid[, 1:which(colnames(acs_covid) == "or_incidence")] %>%
   left_join(clusters, by = "fips") %>%
   mutate(isCluster = case_when(
@@ -689,7 +695,7 @@ acs_covid <- acs_covid[, 1:which(colnames(acs_covid) == "or_incidence")] %>%
 
 **Planned deviation for reproduction**: Map the `SpatialEpi` cluster results.
 
-```{r map-clusters}
+```{r map-clusters, eval = FALSE}
 tm_spatialepi_clusters <-
   tm_shape(state) +
     tm_fill("gray98") +
@@ -716,7 +722,7 @@ tm_spatialepi_clusters
 **Unplanned deviation for reproduction**: The `SpatialEpi` implementation of Kulldorff spatial scan statistics does not calculate local relative risk or cluster relative risk.
 Therefore, the next step is to calculate local and cluster relative risk (workflow step 7).
 
-```{r relative-risk}
+```{r relative-risk, eval = FALSE}
 total_pop <- sum(acs_covid$pop)
 total_cases <- sum(acs_covid$cases)
 
@@ -750,7 +756,7 @@ Risk is classified according to this table:
 
 Counties falling outside of any cluster are assigned a score of 1.
 
-```{r classify-relative-risk}
+```{r classify-relative-risk, eval = FALSE}
 # class breaks
 breaks <- c(-Inf, 1, 2, 3, 4, 5, Inf)
 
@@ -767,7 +773,7 @@ acs_covid <- acs_covid %>%
 
 First, map the spatial distribution of local relative risk score classifications.
 
-```{r map local relative risk score}
+```{r map local relative risk score, eval = FALSE}
 # count the frequency of counties in each class and create labels
 class_freq <- acs_covid %>% st_drop_geometry() %>% count(loc_class)
 class_freq$qual <- ifelse(class_freq$n > 1, " counties", " county")
@@ -806,7 +812,7 @@ tm_spatialepi_local_risk_class
 Next, map the cluster relative risk scores for comparison.
 Note that following the original study classification methodology, counties outside of clusters are assigned the lowest risk class of `1`.
 
-```{r map-cluster-relative-risk-classes}
+```{r map-cluster-relative-risk-classes, eval = FALSE}
 # count the frequency of counties in each class and create labels
 class_freq <- acs_covid %>% st_drop_geometry() %>% count(cluster_class)
 class_freq$qual <- ifelse(class_freq$n > 1, " counties", " county")
@@ -855,7 +861,7 @@ In order to compare results, we first create cluster IDs as combinations of the 
 The first clustering ID (State) and second clustering score (COVID relative risk class) were combined to form IDs for each unique combination of state and relative risk class.
 Then, we find the number of unique clusters and frequency counties per cluster in our reproduction study for comparison to the original study.
 
-```{r make-gee-clusters}
+```{r make-gee-clusters, eval = FALSE}
 # calculate clusters
 acs_covid <- acs_covid %>% mutate(
   rp_clusID = as.integer(statefp) * 10 + cluster_class
@@ -1010,179 +1016,11 @@ Generalized Estimating Equation parameters:
 
 "The **gamma distribution** with **logarithmic link function** was chosen for all GEEs since this model specification provided the lowest QIC value." (Chakraborty 2021, Methods paragraph 5)
 
-###EMs CODE
-### Spatial Cluster Analysis
-```{r create spatial cluster}
-
-acs_covid_spot <- acs_covid %>% 
-  filter(!is.na(excess_death_rate_2020)) %>% 
-  group_by(cs_code.x, excess_death_rate_2020) %>% 
-  summarise()
-
-```
-
-
-```{r create spatial weight matrix}
-county_coords <- acs_covid_spot %>%
-  st_centroid() %>% # convert polygons to centroid points
-  st_coordinates()
-
-
-thresdist <- county_coords %>% 
-  dnearneigh(0, 110, longlat = TRUE) %>% # use geodesic distance of 110km
-  # distance should be long enough for every feature to have >= one neighbor
-  include.self() # include a county in its own neighborhood (for G*)
-
-thresdist
-
-dwm <- nb2listw(thresdist, zero.policy = T)
-```
-
-
-```{r creating neighbor objects}
-
-# create first order queen continuity
-nb.foq <- poly2nb(acs_covid_spot, queen = TRUE, row.names = acs_covid_spot$excess_death_rate_2020)
-
-# create second order queen continuity
-nb.soq <- nblag(nb.foq, 2)
-
-foqweights.lw <- nb2listw(nb.foq, zero.policy = T)
-
-```
-
-
-```{r Calculate Getis-Ord G* Statistic}
-
-acs_covid_spot$locG <- as.vector(localG(acs_covid_spot$excess_death_rate_2020,
-  listw = foqweights.lw,
-  zero.policy = TRUE
-))
-
-summary(acs_covid_spot$locG)
-
-```
-```{r map hotspots}
-siglevel <- c(1.15, 1.95)
-acs_covid_spot <- acs_covid_spot %>%
-  mutate(sig = cut(locG, c(
-    min(acs_covid_spot$locG),
-    siglevel[2] * -1,
-    siglevel[1] * -1,
-    siglevel[1],
-    siglevel[2],
-    max(acs_covid_spot$locG)
-  )))
-
-
-ggplot() +
-  geom_sf(data = acs_covid_spot, aes(fill = sig), color = "white", lwd = 0.1) +
-  scale_fill_manual(
-    values = c("#0000FF80", "#8080FF80", "#FFFFFF80", "#FF808080", "#FF000080"),
-    labels = c("low", "", "insignificant", "", "high"),
-    aesthetics = "fill"
-  ) +
-  guides(fill = guide_legend(title = "Hot Spots")) +
-  labs(title = "Clusters of COVID-19 Excess Death Rate") +
-  theme(
-    plot.title = element_text(hjust = 0.5),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank()
-  )
-```
-
-### GEE Function
-
-Define a function for calculating and summarizing five GEE models
-
-```{r gee-functions}
-onegee <- function(gee_data, dep_var, id, term_names) {
-
-  # sort data frame by clustering variable, a requirement of GEE modeling
-  gee_data <- gee_data %>% arrange({{ id }})
-
-  # create list of models and their independent variables
-  model_names <- c(
-    "race",
-    "ethnicity",
-    "poverty status",
-    "age",
-    "biological sex"
-  )
-
-  ind_vars <- c(
-    "z_white_pct + z_black_pct + z_native_pct + z_asian_pct + z_other_pct",
-    "z_non_hisp_white_pct + z_hisp_pct + z_non_hisp_non_white_pct",
-    "z_bpov_pct + z_apov_pct",
-    "z_pct_5_17 + z_pct_18_34 + z_pct_35_64 + z_pct_65_74 + z_pct_75",
-    "z_male_pct + z_female_pct"
-  )
-
-  gee_models <- data.frame(model_names, ind_vars)
-  gee_model <- list()
-
-  # empty data frame for storing model outputs
-  coefficients <- data.frame()
-  qics <- data.frame(model_names, qic = c(1:5))
-
-  # run each model and save outputs
-  for(i in 1:nrow(gee_models)){
-
-    # run model
-    gee_model[[i]] <- geeglm(
-      formula = as.formula(paste(dep_var, "~", gee_models[i, "ind_vars"])),
-      data = gee_data,
-      id = {{ id }}, # cluster IDs
-      family = Gamma(link = "log"),
-      corstr = "exchangeable",
-    )
-
-    # tidy and save variable coefficients, margins of error, significance...
-    gee_table <- tidy(gee_model[[i]], conf.int = TRUE)
-    gee_table[1, 1] <- paste(gee_models[i, 1], "model intercept")
-    coefficients <- coefficients %>% rbind(gee_table)
-
-    # QIC: quasi-likelihood under the independence model information criterion
-    QIC(gee_model[[i]])
-    qics[i, 2] <- QIC(gee_model[[i]])[1]
-
-    gee_model[[i]]$model <- NA
-  }
-
-  # calculate significance levels
-  coefficients$stars <- as.numeric(
-    as.character(
-      cut(coefficients$p.value,
-        breaks = c(-0.1, 0.01, 0.05, 1),
-        labels = c(2, 1, 0)
-      )
-    )
-  )
-
-  # reorder columns to match table2 in publication and round to 3 sig. digits
-  coefficients <- coefficients %>%
-    select("estimate", "std.error", starts_with("conf"), "stars", "p.value") %>%
-    round(digits = 3)
-
-  # add tidy term names
-  coefficients <- bind_cols(term = term_names, coefficients)
-
-  # combine coefficient results and QIC results into a list
-  return_data <- list(
-    "coefficients" = coefficients,
-    "QICs" = qics,
-    "models" = gee_model
-    )
-
-  return(return_data)
-}
-```
-
 ### SpatialEpi Clusters and Excess Death Rate
 
 Calculate GEE models with: - Clustering: Reproduced SpatialEpi clusters & State ID - Dependent variable: excess death incidence.
 
-```{r gee-spatialepi-clusters-reproduced-incidence}
+```{r gee-spatialepi-clusters-reproduced-incidence, eval = FALSE}
 #changed id = gee_data$rp_clusID to id = gee_data$id
 gee_rp_clus_rpdep <- onegee(gee_data,
                     dep_var = "excess_death_rate_2020",
@@ -1196,7 +1034,7 @@ gee_rp_clus_rpdep$coefficients %>%
 
 ### Interpret GEE Model
 
-```{r residuals}
+```{r residuals, eval = FALSE}
 # create data frame with residuals
 gee_resid <- data.frame(
   select(gee_rp_clus_rpdep$models[[1]]$data, excess_death_rate_2020, ss_clusID),
@@ -1223,7 +1061,7 @@ gee_resid <- data.frame(
 # blog: https://www.datascienceblog.net/post/machine-learning/interpreting_generalized_linear_models
 ```
 
-```{r map-residuals}
+```{r map-residuals, eval = FALSE}
 tm_gee_residuals <- tm_shape(gee_resid) +
   tm_polygons("response",
     title = "Race Model Residuals",
@@ -1251,7 +1089,7 @@ tm_gee_residuals
 
 Calculate variance, covariance, correlation, and weights
 
-```{r weights}
+```{r weights, eval = FALSE}
 # calculate k number of observations per cluster
 gee_resid <- gee_resid %>% 
   group_by(ss_clusID) %>% 
@@ -1287,7 +1125,7 @@ gee_resid <- gee_resid %>%
 
 Map each county's weight in GEE model.
 
-```{r map-weights}
+```{r map-weights, eval= FALSE}
 tm_gee_weights <- tm_shape(gee_resid) +
   tm_polygons("w",
     title = "Race Model Weights",
@@ -1333,8 +1171,11 @@ ggsave(here("results", "figures", "plot_coefficients.png"), geewhisker_fig)
 
 Looking at our maps of excess deaths and disability for 2020, there does not appear to be much of a correlation between the two at a glance. There are high rates of disability in regions such as New England, and especially upper Maine, as well as in swaths of the South and in the Pacific Northwest (PNW). However, there are not high excess death incidences in New England, in the PNW, nor in any big metropolitan areas, such as along the East Coast. However, there were high concentrations of excess deaths in parts of Texas and in other parts of the south.
 
-Interestingly, in Nevada, there seemed to be notably more instances of excess deaths than in its immediate neighbors, and in some counties in southern Nevada, there were also high rates of disability. However, visually there does not appear to be a perfect correlation. 
+Interestingly, in Nevada, there seemed to be notably more instances of excess deaths than in its immediate neighbors, and in some counties in southern Nevada, there were also high rates of disability. However, visually there does not appear to be a perfect correlation.
+
+The county-level Pearson's rho correlation coefficient was used to test association between intra-categorical rates of disability and excess death rates. There were negative correlations between excess death rates and percentages of white, Asian, and non-Hispanic white populations. 
 
 One potential issues with this reproduction is spatial heterogeneity; there are distinct areas where the pandemic spread early on as opposed to later, once it had spread widely throughout the entire country. By nature, our reproduction will mitigate this issue because we will be reproducing the study at a later date (2020 instead of 2018), after the pandemic had spread widely throughout the United States.
 
 Another potential threat to validity would include scale dependency, which refers to the idea of a phenomena in one place being influenced by neighboring locations. Chakraborty was interested in the relationship between disabilities and the spread of COVID-19, however, it is likely that the spread of COVID-19 was not entirely dependent on disability, but rather in part physical proximity of places. This is to say that nearby places likely transmitted COVID-19 between them than places further apart.
+
