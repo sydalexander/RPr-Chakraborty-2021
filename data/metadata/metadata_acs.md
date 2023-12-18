@@ -1,0 +1,12 @@
+- `Title`: 2014-2018 American Community Survey 5-year Estimates
+- `Abstract`: This dataset documents poverty and disability data on the county level. The US Census Bureau collects the data in order to produces information on social, economic, housing, and demographic characteristics about the nation's population every year, which provides an important tool for communities to use and see how they are changing. In our reproduction analysis, we are using the data to measure the relationship between COVID-19 incidence and socio-demographic and disability characteristics. The primary goal is to validate Chakraborty's results and to inform public health policy-making and resource allocation.
+- `Spatial Coverage`: The contiguous United States
+- `Spatial Resolution`: County
+- `Spatial Reference System`: None, just attribute data
+- `Temporal Coverage`: 2014-2018
+- `Temporal Resolution`: Data averaged over five years
+- `Lineage`: In our reproduction analysis, we first obtained a census api at  https://api.census.gov/data/key_signup.html. Then, we used the tidycensus package in R to retrieve the census data based on the table name. 
+- `Distribution`: Details on ACS data collection can be found at <https://www.census.gov/topics/health/disability/guidance/data-collection-acs.html> 
+- `Constraints`: Census data is available in the public domain.
+- `Data Quality`: Details on sampling methods and accuracy can be found at <https://www.census.gov/programs-surveys/acs/technical-documentation/code-lists.htm>
+- `Variables`: Refer to the files titled ACSDT5Y2020.C18130_metadata.csv and ACSST5Y2020.S18130_metadata.csv in data\metadata for more explanations on the columns in this data file. Refer to our Rmarkdown file at procedure\code for the list of columns in this dataset that are used in our reproduction analysis.

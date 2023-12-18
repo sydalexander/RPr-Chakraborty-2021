@@ -1,0 +1,12 @@
+- `Title`: County Level COVID-19 Incidence Rate
+- `Abstract`: This is the data repository for the 2019 Novel Coronavirus Visual Dashboard operated by the Johns Hopkins University Center for Systems Science and Engineering (JHU CSSE). We are using the dataset to study whether COVID-19 incidence is more significant in counties with larger proportions of socio-demographically disadvantaged people with disabilities, based on race, ethnicity, poverty status, and biological sex, controlling for spatial clusters.
+- `Spatial Coverage`: The contiguous United States
+- `Spatial Resolution`: County
+- `Spatial Reference System`: None, just attribute data
+- `Temporal Coverage`: Cumulative count of reported COVID-19 from 1/22/2020 to 8/1/2020.
+- `Temporal Resolution`: Incidence rate by estimated population based on the 2014-2018 5-year ACS estimate and COVID counts by county tracked in real time
+- `Lineage`: The dataset is provided by Chakraborty and preprocessed in the RStudio for analysis. 
+- `Distribution`: Versions of the data can be found at the John Hopkins CCSE COVID-19 Data Repository (<https://github.com/CSSEGISandData/COVID-19>).
+- `Constraints`: Data is no longer available online in the state in which it was downloaded on August 1, 2020.
+- `Data Quality`: 
+- `Variables`: 

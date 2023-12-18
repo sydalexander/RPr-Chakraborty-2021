@@ -1,0 +1,12 @@
+- `Title`: County Level COVID-19 Excess Death Rate
+- `Abstract`: This dataset is derived from an estimation of expected mortality based on historical trends in deaths by county of residence between 2011 and 2019. It was originally used to generate estimates of excess mortality and excess deaths not assigned to COVID-19 in 2020 for 1470 county sets in the US representing 3138 counties. We are using the dataset to study whether COVID-19 death rate is more significant in counties with larger proportions of socio-demographically disadvantaged people with disabilities, based on race, ethnicity, poverty status, and biological sex, controlling for spatial clusters.
+- `Spatial Coverage`: United States
+- `Spatial Resolution`: County level data
+- `Spatial Reference System`: None, just attribute data
+- `Temporal Coverage`: 2020
+- `Temporal Resolution`: Based on historical trends in deaths by county of residence between 2011 and 2019
+- `Lineage`: The dataset is downloaded from the paper by Ackley, C. A.,etal. and preprocessed in the RStudio for analysis. Joseph Holler, Junyi Zhou, and Peter Kedron selected columns that are relevant to their analysis to use and combined the dataset with socio-demographic and poverty variables by GEOID.
+- `Distribution`: Center for System Science in Engineering at Johns Hopkins University
+- `Constraints`: The data is open access under the Creative Commons License 4.0 International (CC-BY-NC-ND)
+- `Data Quality`: 
+- `Variables`: 
